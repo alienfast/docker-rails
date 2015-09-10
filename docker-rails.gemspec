@@ -8,8 +8,8 @@ Gem::Specification.new do |s|
   s.version       = Docker::Rails::VERSION
   s.authors       = ['Kevin Ross']
   s.email         = ['kevin.ross@alienfast.com']
-  s.summary       = %q{TODO: Write a short summary. Required.}
-  s.description   = %q{TODO: Write a longer description. Optional.}
+  s.summary       = %q{A simplified pattern to execute rails applications within Docker (with a CI build emphasis)}
+  s.description   = %q{}
   s.homepage      = ''
   s.license       = 'MIT'
 

@@ -1,6 +1,6 @@
 # Docker::Rails
 
-A simplified pattern to execute rails applications within Docker.
+A simplified pattern to execute rails applications within Docker (with a CI build emphasis).
 
 Features:
 - cached global bundler data volume (automatic) based on ruby version
