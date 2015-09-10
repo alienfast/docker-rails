@@ -37,13 +37,14 @@ ENV['GEMS_VOLUME_NAME'] = GEMS_VOLUME_NAME
 #
 require 'docker'
 begin
-  gems_container = Docker::Container.get(GEMS_VOLUME_NAME)
+  Docker::Container.get(GEMS_VOLUME_NAME)
   puts "Gem data volume container #{GEMS_VOLUME_NAME} already exists."
 rescue Docker::Error::NotFoundError => e
-  gems_container = Docker::Container.create('name' => GEMS_VOLUME_NAME, 'Image' => 'busybox', 'Mounts' => [{'Destination' => GEMS_VOLUME_PATH}])
+
+  system "docker create -v #{GEMS_VOLUME_PATH} --name #{GEMS_VOLUME_NAME} busybox"
   puts "Gem data volume container #{GEMS_VOLUME_NAME} created."
 end
-gems_container.streaming_logs(stdout: true) { |stream, chunk| puts "#{GEMS_VOLUME_NAME}: #{chunk}" }
+# gems_container.streaming_logs(stdout: true) { |stream, chunk| puts "#{GEMS_VOLUME_NAME}: #{chunk}" }
 
 # Read docker-compose.yml and rewrite with interpolated variables and BUILD_NAME
 COMPOSE_FILENAME = "docker-compose-build-#{BUILD_NAME}.yml"
@@ -62,8 +63,8 @@ def xc(cmd, capture = false)
   else
     system cmd
   end
-  success = $?.success?
-  raise "Failed to execute: `#{cmd}`" unless success
+
+  raise "Failed to execute: `#{cmd}`" unless $?.success?
   output
 end
 
@@ -80,8 +81,8 @@ def get_ip_address(container_name)
   cmd = "docker inspect --format '{{ .NetworkSettings.IPAddress }}' #{container_name}"
   puts "Running `#{cmd}`"
   output = %x[#{cmd}]
-  success = $?.success?
-  raise "Failed to execute: `#{cmd}`" unless success
+
+  raise "Failed to execute: `#{cmd}`" unless $?.success?
   output
 end
 
@@ -91,7 +92,7 @@ def up_container(service_name, options = '')
   puts "#{service_name}: container_name #{container_name}"
 
   container = Docker::Container.get(container_name)
-  container.streaming_logs(stdout: true) { |stream, chunk| puts "#{service_name}: #{chunk}" }
+  # container.streaming_logs(stdout: true) { |stream, chunk| puts "#{service_name}: #{chunk}" }
   # puts container
 
   ip_address = get_ip_address(container_name)
@@ -161,13 +162,13 @@ begin
   web_container, web_container_name, web_ip_address = *up_container('web')
 
 ensure
-  puts 'Cleaning up containers...'
+  puts "\n\n\n\nCleaning up containers..."
   destroy_container(db_container, db_container_name)
   destroy_container(web_container, web_container_name)
   puts "Done.\n\n\n"
 
 # cleanup build interpolated docker-compose.yml
-  File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
+#   File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
 
   system 'docker ps -a'
 end
