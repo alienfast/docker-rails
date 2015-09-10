@@ -1,0 +1,148 @@
+#!/usr/bin/env ruby
+
+
+# compose cli
+#   https://docs.docker.com/v1.6/compose/cli/#environment-variables
+
+# compose yml
+#   https://docs.docker.com/v1.6/compose/yml/
+
+# remote api
+#   https://docs.docker.com/reference/api/docker_remote_api_v1.20
+
+
+# enable local usage from cloned repo
+root = File.expand_path('../..', __FILE__)
+$LOAD_PATH << "#{root}/lib" if File.exist?("#{root}/Gemfile")
+
+require 'docker/rails'
+
+BUILD_NAME = '113' # temp should be passed in
+ENV['BUILD_NAME'] = BUILD_NAME
+
+# Discover ruby version from the Dockerfile image
+IO.read('Dockerfile') =~ /^FROM \w+\/ruby:(\d+.\d+(?:.\d+))/
+BUILD_RUBY_VERSION = $1
+
+# Set as variable for interpolation
+GEMS_VOLUME_PATH = "/gems/#{BUILD_RUBY_VERSION}"
+GEMS_VOLUME_NAME = "gems-#{BUILD_RUBY_VERSION}"
+ENV['GEMS_VOLUME_PATH'] = GEMS_VOLUME_PATH
+ENV['GEMS_VOLUME_NAME'] = GEMS_VOLUME_NAME
+
+# -----------
+# Create global gems data volume to cache gems for this version of ruby
+#
+#   Docker::Container.create('name' => 'foo-gems-2.2.2', 'Image' => 'busybox', 'Mounts' => [ { 'Destination' => '/gems/2.2.2' } ])
+#
+require 'docker'
+begin
+  gems_container = Docker::Container.get(GEMS_VOLUME_NAME)
+  puts "Gem data volume container #{GEMS_VOLUME_NAME} already exists."
+rescue Docker::Error::NotFoundError => e
+  gems_container = Docker::Container.create('name' => GEMS_VOLUME_NAME, 'Image' => 'busybox', 'Mounts' => [{'Destination' => GEMS_VOLUME_PATH}])
+  puts "Gem data volume container #{GEMS_VOLUME_NAME} created."
+end
+gems_container.streaming_logs(stdout: true) { |stream, chunk| puts "#{GEMS_VOLUME_NAME}: #{chunk}" }
+
+# Read docker-compose.yml and rewrite with interpolated variables and BUILD_NAME
+COMPOSE_FILENAME = "docker-compose-build-#{BUILD_NAME}.yml"
+compose_config = Docker::Rails::ComposeConfig.interpolate_file(COMPOSE_FILENAME)
+
+# convenience to execute docker-compose with file and project params
+def xc(cmd)
+  cmd = "docker-compose -f #{COMPOSE_FILENAME} -p #{BUILD_NAME} #{cmd}"
+  puts "Running `#{cmd}`"
+  output =`#{cmd}`
+  result=$?.success?
+  output
+end
+
+# service_name i.e. 'db' or 'web'
+def get_container_name(service_name)
+  output = xc "ps #{service_name}"
+  output =~ /^(\w+)/ # grab the name, only thing that is at the start of the line
+  $1
+end
+
+# http://blog.oddbit.com/2014/08/11/four-ways-to-connect-a-docker/
+def get_ip_address(container_name)
+  cmd = "docker inspect --format '{{ .NetworkSettings.IPAddress }}' #{container_name}"
+  puts "Running `#{cmd}`"
+  output = `#{cmd}`
+  result=$?.success?
+  output
+end
+
+def up_container(service_name, options = '')
+  xc "up #{options} #{service_name}"
+  container_name = get_container_name(service_name)
+  puts "#{service_name}: container_name #{container_name}"
+
+  container = Docker::Container.get(container_name)
+  container.streaming_logs(stdout: true) { |stream, chunk| puts "#{service_name}: #{chunk}" }
+  # puts container
+
+  ip_address = get_ip_address(container_name)
+  [container, container_name, ip_address]
+end
+
+def destroy_container(container, container_name)
+  puts "Stopping and deleting #{container_name}..."
+  container.stop
+  container.delete(force: true)
+end
+
+# Start the db container
+db_container, db_container_name, db_ip_address = *up_container('db', '-d')
+
+# ping db to see if it is ready before continuing
+require 'rubygems'
+require 'active_record'
+
+LOOP_LIMIT=60
+puts "=> Waiting for confirmation of #{db_container_name} db service startup at #{db_ip_address}..."
+LOOP_LIMIT.times do |i|
+  if i == LOOP_LIMIT - 1
+    puts 'Time out waiting for db to be up.'
+    #docker logs --follow=false $DB_CONTAINER
+    break
+  end
+
+  ActiveRecord::Base.establish_connection ({
+                                              adapter: 'mysql2',
+                                              # host: db_ip_address,
+                                              host: '192.168.99.100',
+                                              port: 3306,
+                                              username: 'root'})
+  # connected = ActiveRecord::Base.connection_pool.with_connection { |con| con.active? }  rescue false
+  connected =
+      begin
+        ActiveRecord::Base.connection_pool.with_connection { |con| con.active? }
+      rescue => e
+        # puts "#{e.class.name}: #{e.message}"
+        false
+      end
+  printf '.'
+  if connected
+    printf 'connected.'
+    break
+  end
+  sleep 1
+end
+puts ''
+
+
+# Start the web containers
+web_container, web_container_name, web_ip_address = *up_container('web')
+
+
+puts 'Cleaning up containers...'
+destroy_container(db_container, db_container_name)
+destroy_container(web_container, web_container_name)
+puts "Done.\n\n\n"
+
+# cleanup build interpolated docker-compose.yml
+# File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
+
+system 'docker ps -a'
