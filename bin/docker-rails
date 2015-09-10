@@ -99,65 +99,75 @@ def up_container(service_name, options = '')
 end
 
 def destroy_container(container, container_name)
-  puts "Stopping and deleting #{container_name}..."
-  container.stop
-  container.delete(force: true)
+  return if container.nil?
+  begin
+    puts "Stopping and deleting #{container_name}..."
+    container.stop
+    container.delete(force: true)
+  rescue => e
+    puts "Failed to destroy #{container_name}: #{e.class.name} #{e.message}"
+  end
 end
 
 # make sure we are built
 xc 'build'
 
+
+db_container, db_container_name, web_container, web_container_name = nil
+
+begin
 # Start the db container
-db_container, db_container_name, db_ip_address = *up_container('db', '-d')
+  db_container, db_container_name, db_ip_address = *up_container('db', '-d')
 
 # ping db to see if it is ready before continuing
-require 'rubygems'
-require 'active_record'
-require 'mysql2'
+  require 'rubygems'
+  require 'active_record'
+  require 'mysql2'
 
-LOOP_LIMIT=60
-puts "=> Waiting for confirmation of #{db_container_name} db service startup at #{db_ip_address}..."
-LOOP_LIMIT.times do |i|
-  if i == LOOP_LIMIT - 1
-    puts 'Time out waiting for db to be up.'
-    #docker logs --follow=false $DB_CONTAINER
-    break
-  end
+  LOOP_LIMIT=60
+  puts "=> Waiting for confirmation of #{db_container_name} db service startup at #{db_ip_address}..."
+  LOOP_LIMIT.times do |i|
+    if i == LOOP_LIMIT - 1
+      puts 'Time out waiting for db to be up.'
+      #docker logs --follow=false $DB_CONTAINER
+      break
+    end
 
-  ActiveRecord::Base.establish_connection ({
-                                              adapter: 'mysql2',
-                                              # host: db_ip_address,
-                                              host: '192.168.99.100',
-                                              port: 3306,
-                                              username: 'root'})
-  # connected = ActiveRecord::Base.connection_pool.with_connection { |con| con.active? }  rescue false
-  connected =
-      begin
-        ActiveRecord::Base.connection_pool.with_connection { |con| con.active? }
-      rescue => e
-        # puts "#{e.class.name}: #{e.message}"
-        false
-      end
-  printf '.'
-  if connected
-    printf 'connected.'
-    break
+    ActiveRecord::Base.establish_connection ({
+                                                adapter: 'mysql2',
+                                                # host: db_ip_address,
+                                                host: '192.168.99.100',
+                                                port: 3306,
+                                                username: 'root'})
+    # connected = ActiveRecord::Base.connection_pool.with_connection { |con| con.active? }  rescue false
+    connected =
+        begin
+          ActiveRecord::Base.connection_pool.with_connection { |con| con.active? }
+        rescue => e
+          # puts "#{e.class.name}: #{e.message}"
+          false
+        end
+    printf '.'
+    if connected
+      printf 'connected.'
+      break
+    end
+    sleep 1
   end
-  sleep 1
-end
-puts ''
+  puts ''
 
 
 # Start the web containers
-web_container, web_container_name, web_ip_address = *up_container('web')
+  web_container, web_container_name, web_ip_address = *up_container('web')
 
-
-puts 'Cleaning up containers...'
-destroy_container(db_container, db_container_name)
-destroy_container(web_container, web_container_name)
-puts "Done.\n\n\n"
+ensure
+  puts 'Cleaning up containers...'
+  destroy_container(db_container, db_container_name)
+  destroy_container(web_container, web_container_name)
+  puts "Done.\n\n\n"
 
 # cleanup build interpolated docker-compose.yml
-File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
+  File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
 
-system 'docker ps -a'
+  system 'docker ps -a'
+end
