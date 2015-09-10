@@ -24,4 +24,5 @@ Gem::Specification.new do |s|
   s.add_dependency 'docker-api'
   # s.add_dependency 'parallel_tests'
   s.add_dependency 'dry-config', '>= 1.1.6'
+  s.add_dependency 'mysql2', '~> 0.3.18' # http://stackoverflow.com/a/32466950/2363935
 end

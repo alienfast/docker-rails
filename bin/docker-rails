@@ -17,7 +17,7 @@ $LOAD_PATH << "#{root}/lib" if File.exist?("#{root}/Gemfile")
 
 require 'docker/rails'
 
-BUILD_NAME = '113' # temp should be passed in
+BUILD_NAME = '115' # temp should be passed in
 ENV['BUILD_NAME'] = BUILD_NAME
 
 # Discover ruby version from the Dockerfile image
@@ -49,18 +49,28 @@ gems_container.streaming_logs(stdout: true) { |stream, chunk| puts "#{GEMS_VOLUM
 COMPOSE_FILENAME = "docker-compose-build-#{BUILD_NAME}.yml"
 compose_config = Docker::Rails::ComposeConfig.interpolate_file(COMPOSE_FILENAME)
 
+def compose_cmd(cmd)
+  "docker-compose -f #{COMPOSE_FILENAME} -p #{BUILD_NAME} #{cmd}"
+end
+
 # convenience to execute docker-compose with file and project params
-def xc(cmd)
-  cmd = "docker-compose -f #{COMPOSE_FILENAME} -p #{BUILD_NAME} #{cmd}"
+def xc(cmd, capture = false)
+  cmd = compose_cmd(cmd)
   puts "Running `#{cmd}`"
-  output =`#{cmd}`
-  result=$?.success?
+  if capture
+    output = %x[#{cmd}]
+  else
+    system cmd
+  end
+  success = $?.success?
+  raise "Failed to execute: `#{cmd}`" unless success
   output
 end
 
 # service_name i.e. 'db' or 'web'
 def get_container_name(service_name)
-  output = xc "ps #{service_name}"
+  output = xc "ps #{service_name}", true
+  # puts "get_container(#{service_name}): \n#{output}"
   output =~ /^(\w+)/ # grab the name, only thing that is at the start of the line
   $1
 end
@@ -69,8 +79,9 @@ end
 def get_ip_address(container_name)
   cmd = "docker inspect --format '{{ .NetworkSettings.IPAddress }}' #{container_name}"
   puts "Running `#{cmd}`"
-  output = `#{cmd}`
-  result=$?.success?
+  output = %x[#{cmd}]
+  success = $?.success?
+  raise "Failed to execute: `#{cmd}`" unless success
   output
 end
 
@@ -93,12 +104,16 @@ def destroy_container(container, container_name)
   container.delete(force: true)
 end
 
+# make sure we are built
+xc 'build'
+
 # Start the db container
 db_container, db_container_name, db_ip_address = *up_container('db', '-d')
 
 # ping db to see if it is ready before continuing
 require 'rubygems'
 require 'active_record'
+require 'mysql2'
 
 LOOP_LIMIT=60
 puts "=> Waiting for confirmation of #{db_container_name} db service startup at #{db_ip_address}..."
@@ -143,6 +158,6 @@ destroy_container(web_container, web_container_name)
 puts "Done.\n\n\n"
 
 # cleanup build interpolated docker-compose.yml
-# File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
+File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
 
 system 'docker ps -a'
