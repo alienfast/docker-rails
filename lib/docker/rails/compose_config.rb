@@ -7,6 +7,7 @@ module Docker
           compose = ComposeConfig.new(symbolize: false)
           compose.load!(nil, input_filename)
           compose.write_yaml_file(output_filename)
+          compose
         end
       end
     end
