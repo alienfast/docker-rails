@@ -14,10 +14,11 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 Open to pull requests, while this starts off as one-person's environment, it can be expanded to suit many different configurations.
 
 TODO:
-- remove or default hardcoded BUILD_NAME
-- expand to different db status detection as needed e.g. postgres
-- move to proper CLI (it's mostly in script form at the moment)
-- (perhaps) provide name based compose configurations, i.e. running `docker-rails development` vs. `docker-rails test` vs. `docker-rails parallel_tests` might be nice to have (and easy) since most of the configuration is the same, sans `command`.
+- **CLI** - move to proper CLI (it's mostly in script form at the moment)
+- **Declarative extraction** - since volumes are deleted, in the case of CI, we need to copy/extract out the build artifacts before deleting the volumes permanently
+- **Hardcoding** - remove or default hardcoded BUILD_NAME
+- **DB versatility** - expand to different db status detection as needed e.g. postgres
+- **Declarative command configurations** (perhaps) provide name based compose configurations, i.e. running `docker-rails development` vs. `docker-rails test` vs. `docker-rails parallel_tests` might be nice to have (and easy) since most of the configuration is the same, sans `command`.
 
 
 ## Installation
