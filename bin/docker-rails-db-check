@@ -8,7 +8,8 @@ require 'active_record'
 require 'mysql2'
 
 LOOP_LIMIT=60
-puts 'Waiting for confirmation of db service startup...'
+puts "\n"
+printf 'Waiting for confirmation of db service startup...'
 LOOP_LIMIT.times do |i|
   if i == LOOP_LIMIT - 1
     printf 'failed to connect.'
@@ -34,4 +35,4 @@ LOOP_LIMIT.times do |i|
   end
   sleep 1
 end
-puts ''
+puts "\n"
