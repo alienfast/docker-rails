@@ -44,8 +44,7 @@ ENV DEBIAN_FRONTEND noninteractive
 # For building, nokogiri support, capybara-webkit, mysql client
 # Clean up APT when done.
 RUN apt-get update -qq && \
-    apt-get install -qy build-essential libxml2-dev libxslt1-dev \
-            g++ qt5-default libqt5webkit5-dev xvfb libmysqlclient-dev && \
+    apt-get install -qy build-essential libxml2-dev libxslt1-dev g++ qt5-default libqt5webkit5-dev xvfb libmysqlclient-dev && \
 
     # cleanup
     apt-get clean && \
