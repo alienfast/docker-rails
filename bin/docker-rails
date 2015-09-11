@@ -13,7 +13,7 @@
 
 # docker-compose -f docker-compose-build-116.yml -p 116 up -d db
 # docker-compose -f docker-compose-build-116.yml -p 116 up  web
-
+SHOW_COMMANDS = true
 
 # enable local usage from cloned repo
 root = File.expand_path('../..', __FILE__)
@@ -21,7 +21,7 @@ $LOAD_PATH << "#{root}/lib" if File.exist?("#{root}/Gemfile")
 
 require 'docker/rails'
 
-BUILD_NAME = '116' # temp should be passed in
+BUILD_NAME = '118' # temp should be passed in
 ENV['BUILD_NAME'] = BUILD_NAME
 
 # Discover ruby version from the Dockerfile image
@@ -34,6 +34,19 @@ GEMS_VOLUME_NAME = "gems-#{BUILD_RUBY_VERSION}"
 ENV['GEMS_VOLUME_PATH'] = GEMS_VOLUME_PATH
 ENV['GEMS_VOLUME_NAME'] = GEMS_VOLUME_NAME
 
+
+def exec(cmd, capture = false)
+  puts "Running `#{cmd}`" if SHOW_COMMANDS
+  if capture
+    output = %x[#{cmd}]
+  else
+    system cmd
+  end
+
+  raise "Failed to execute: `#{cmd}`" unless $?.success?
+  output
+end
+
 # -----------
 # Create global gems data volume to cache gems for this version of ruby
 #
@@ -45,53 +58,33 @@ begin
   puts "Gem data volume container #{GEMS_VOLUME_NAME} already exists."
 rescue Docker::Error::NotFoundError => e
 
-  system "docker create -v #{GEMS_VOLUME_PATH} --name #{GEMS_VOLUME_NAME} busybox"
+  exec "docker create -v #{GEMS_VOLUME_PATH} --name #{GEMS_VOLUME_NAME} busybox"
   puts "Gem data volume container #{GEMS_VOLUME_NAME} created."
 end
 # gems_container.streaming_logs(stdout: true) { |stream, chunk| puts "#{GEMS_VOLUME_NAME}: #{chunk}" }
+
+# Delete old docker compose files
+exec "rm docker-compose-build-*.yml"
 
 # Read docker-compose.yml and rewrite with interpolated variables and BUILD_NAME
 COMPOSE_FILENAME = "docker-compose-build-#{BUILD_NAME}.yml"
 compose_config = Docker::Rails::ComposeConfig.interpolate_file(COMPOSE_FILENAME)
 
-def compose_cmd(cmd)
-  "docker-compose -f #{COMPOSE_FILENAME} -p #{BUILD_NAME} #{cmd}"
-end
-
 # convenience to execute docker-compose with file and project params
-def xc(cmd, capture = false)
-  cmd = compose_cmd(cmd)
-  puts "Running `#{cmd}`"
-  if capture
-    output = %x[#{cmd}]
-  else
-    system cmd
-  end
-
-  raise "Failed to execute: `#{cmd}`" unless $?.success?
-  output
+def exec_compose(cmd, capture = false)
+  exec("docker-compose -f #{COMPOSE_FILENAME} -p #{BUILD_NAME} #{cmd}", capture)
 end
 
 # service_name i.e. 'db' or 'web'
 def get_container_name(service_name)
-  output = xc "ps #{service_name}", true
+  output = exec_compose "ps #{service_name}", true
   # puts "get_container(#{service_name}): \n#{output}"
   output =~ /^(\w+)/ # grab the name, only thing that is at the start of the line
   $1
 end
 
-# http://blog.oddbit.com/2014/08/11/four-ways-to-connect-a-docker/
-def get_ip_address(container_name)
-  cmd = "docker inspect --format '{{ .NetworkSettings.IPAddress }}' #{container_name}"
-  puts "Running `#{cmd}`"
-  output = %x[#{cmd}]
-
-  raise "Failed to execute: `#{cmd}`" unless $?.success?
-  output
-end
-
-def up_container(service_name, options = '')
-  xc "up #{options} #{service_name}"
+def up(service_name, options = '')
+  exec_compose "up #{options} #{service_name}"
   container_name = get_container_name(service_name)
   puts "#{service_name}: container_name #{container_name}"
 
@@ -99,42 +92,41 @@ def up_container(service_name, options = '')
   # container.streaming_logs(stdout: true) { |stream, chunk| puts "#{service_name}: #{chunk}" }
   # puts container
 
-  ip_address = get_ip_address(container_name)
-  [container, container_name, ip_address]
+  [container, container_name]
 end
 
-def destroy_container(container, container_name)
-  return if container.nil?
-  begin
-    puts "Stopping and deleting #{container_name}..."
-    container.stop
-    container.delete(force: true)
-  rescue => e
-    puts "Failed to destroy #{container_name}: #{e.class.name} #{e.message}"
-  end
+def rm_v(service_name)
+  exec_compose "rm -v --force #{service_name}"
 end
+
+def stop(service_name)
+  exec_compose "stop #{service_name}"
+end
+
 
 # make sure we are built
-xc 'build'
-
-
-db_container, db_container_name, web_container, web_container_name = nil
+exec_compose 'build'
 
 begin
   # Start the db container
-  db_container, db_container_name, db_ip_address = *up_container('db', '-d')
+  up('db', '-d')
 
-  # Start the web containers
-  web_container, web_container_name, web_ip_address = *up_container('web')
+  # Start the web container
+  up('web')
 
 ensure
-  puts "\n\n\n\nCleaning up containers..."
-  destroy_container(db_container, db_container_name)
-  destroy_container(web_container, web_container_name)
+  puts "\n\n\n\nCleaning up containers"
+  compose_config.configuration.each_key do |service_name|
+    stop(service_name)
+  end
+  compose_config.configuration.each_key do |service_name|
+    rm_v(service_name)
+  end
   puts "Done.\n\n\n"
 
 # cleanup build interpolated docker-compose.yml
 #   File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
 
+# exec_compose 'rm -v'
   system 'docker ps -a'
 end
