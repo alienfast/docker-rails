@@ -15,10 +15,10 @@ Open to pull requests, while this starts off as one-person's environment, it can
 
 TODO:
 - **CLI** - move to proper CLI (it's mostly in script form at the moment)
-- **Declarative extraction** - since volumes are deleted, in the case of CI, we need to copy/extract out the build artifacts before deleting the volumes permanently
-- **Hardcoding** - remove or default hardcoded BUILD_NAME
+- **Declarative extraction** - [#4? since volumes are deleted](https://github.com/alienfast/docker-rails/issues/4), in the case of CI, we need to copy/extract out the build artifacts before deleting the volumes permanently
+- **Hardcoding** - remove or default [hardcoded BUILD_NAME](https://github.com/alienfast/docker-rails/issues/1)
 - **DB versatility** - expand to different db status detection as needed e.g. postgres
-- **Declarative command configurations** (perhaps) provide name based compose configurations, i.e. running `docker-rails development` vs. `docker-rails test` vs. `docker-rails parallel_tests` might be nice to have (and easy) since most of the configuration is the same, sans `command`.
+- **Declarative command configurations** [#4 provide name based compose configurations](https://github.com/alienfast/docker-rails/issues/4), i.e. running `docker-rails development` vs. `docker-rails test` vs. `docker-rails parallel_tests` might be nice to have (and easy) since most of the configuration is the same, sans `command`.
 
 
 ## Installation
@@ -79,8 +79,8 @@ web:
     && echo 'Generating Spring binstubs'
     && bundle exec spring binstub --all
      
-    && echo 'Clearing logs'
-    && bin/rake log:clear
+    && echo 'Clearing logs and tmp dirs'
+    && bin/rake log:clear tmp:clear
      
     && echo 'Check and wait for database connection'
     && bundle exec docker-rails-db-check
