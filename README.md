@@ -56,7 +56,6 @@ ENV DEBIAN_FRONTEND newt
 
 ADD . /project
 WORKDIR /project
-RUN ["chmod", "+x", "/project/scripts/*"]
 ```
 
 ### 2. Add a docker-compose.yml
@@ -66,8 +65,36 @@ Environment variables will be interpolated, so feel free to use them.
 ```yaml
 web:
   build: .
+  # e.g. engine dummy, otherwise omit.
   working_dir: /project/spec/dummy
-  command: /project/script/start
+  command: >
+    bash -c
+    "
+    echo 'Bundling gems'
+    && bundle install --jobs 4 --retry 3
+     
+    && echo 'Generating Spring binstubs'
+    && bundle exec spring binstub --all
+     
+    && echo 'Clearing logs'
+    && bin/rake log:clear
+     
+    && echo 'Check and wait for database connection'
+    && bundle exec docker-rails-db-check
+     
+    && echo 'Setting up new db if one doesn't exist'
+    && bin/rake db:version || { bundle exec rake db:setup; }
+     
+    && echo 'Removing contents of tmp dirs'
+    && bin/rake tmp:clear
+     
+    && echo 'Starting app server'
+    && bundle exec rails s -p 3000
+     
+    && echo 'Setup and start foreman'
+    && gem install foreman
+    && foreman start
+    "
   ports:
     - "3000:3000"
   links:
@@ -83,6 +110,10 @@ web:
     # Tell bundler where to get the files
     - GEM_HOME=#{GEMS_VOLUME_PATH}
 
+elasticsearch:
+  image: library/elasticsearch:1.7
+  ports:
+    - "9200:9200"
 db:
   image: library/mysql:5.7.6
   ports:
@@ -91,41 +122,11 @@ db:
     - MYSQL_ALLOW_EMPTY_PASSWORD=true
 ```
 
-### 3. Add a startup script
-
-TODO: verify a good sample
-
-```bash
-#!/usr/bin/env bash
-
-echo "Bundling gems"
-bundle install --jobs 4 --retry 3
-
-echo "Generating Spring binstubs"
-bundle exec spring binstub --all
-
-echo "Clearing logs"
-bin/rake log:clear
-
-echo "Setting up new db if one doesn't exist"
-bin/rake db:version || { bundle exec rake db:setup; }
-
-echo "Removing contents of tmp dirs"
-bin/rake tmp:clear
-
-echo "Starting app server"
-bundle exec rails s -p 3000
-
-# or use foreman
-# gem install foreman
-# foreman start
-```
-
-### 4. Run it
+### 3. Run it
 
 `bundle exec docker-rails`
 
-### 5. Submit pull requests!
+### 4. Submit pull requests!
 
 This is starting off simple, but again, we welcome pulls to make this and the process of using docker for rails even easier.
 

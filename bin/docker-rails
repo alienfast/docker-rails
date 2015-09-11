@@ -11,8 +11,10 @@
 #   https://docs.docker.com/reference/api/docker_remote_api_v1.20
 
 
-# docker-compose -f docker-compose-build-116.yml -p 116 up -d db
-# docker-compose -f docker-compose-build-116.yml -p 116 up  web
+# docker-compose -f docker-compose-build-119.yml -p 119 up -d db
+# docker-compose -f docker-compose-build-119.yml -p 119 up  web
+
+
 SHOW_COMMANDS = true
 
 # enable local usage from cloned repo
@@ -21,7 +23,7 @@ $LOAD_PATH << "#{root}/lib" if File.exist?("#{root}/Gemfile")
 
 require 'docker/rails'
 
-BUILD_NAME = '118' # temp should be passed in
+BUILD_NAME = '119' # temp should be passed in
 ENV['BUILD_NAME'] = BUILD_NAME
 
 # Discover ruby version from the Dockerfile image
@@ -64,7 +66,7 @@ end
 # gems_container.streaming_logs(stdout: true) { |stream, chunk| puts "#{GEMS_VOLUME_NAME}: #{chunk}" }
 
 # Delete old docker compose files
-exec "rm docker-compose-build-*.yml"
+exec 'rm docker-compose-build-*.yml' rescue ''
 
 # Read docker-compose.yml and rewrite with interpolated variables and BUILD_NAME
 COMPOSE_FILENAME = "docker-compose-build-#{BUILD_NAME}.yml"
@@ -115,18 +117,23 @@ begin
   up('web')
 
 ensure
-  puts "\n\n\n\nCleaning up containers"
+  puts "\n\n\n\nStopping containers..."
+  puts '-----------------------------'
   compose_config.configuration.each_key do |service_name|
     stop(service_name)
   end
+  puts "\nDone."
+
+  puts "\n\nRemoving container volumes..."
+  puts '-----------------------------'
   compose_config.configuration.each_key do |service_name|
     rm_v(service_name)
   end
-  puts "Done.\n\n\n"
+  puts "\nDone."
+  puts "\n\n\n"
 
 # cleanup build interpolated docker-compose.yml
 #   File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
 
-# exec_compose 'rm -v'
   system 'docker ps -a'
 end
