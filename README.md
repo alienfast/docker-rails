@@ -2,11 +2,11 @@
 
 A simplified pattern to execute rails applications within Docker (with a CI build emphasis).
 
-Features:
+## Features
 - cached global bundler data volume (automatic) based on ruby version
 - interpolates `docker-compose.yml` making CI builds much easier
 - starts `db` container first, and continues with `web` once `db` is ready
-- cleans up `db` and `web` containers once completed
+- cleans up all containers **and** volumes once completed
 
 
 **Very much a work in progress - contributions welcome**
