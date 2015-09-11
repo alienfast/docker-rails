@@ -5,7 +5,8 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 ## Features
 - cached global bundler data volume (automatic) based on ruby version
 - interpolates `docker-compose.yml` making CI builds much easier
-- starts `db` container first, and continues with `web` once `db` is ready
+- starts `db` container first and continues with `web`
+- function provided for docker-compose `command` to check if db is ready, currently executed as script `docker-rails-db-check`
 - cleans up all containers **and** volumes once completed
 
 
@@ -16,6 +17,7 @@ TODO:
 - remove or default hardcoded BUILD_NAME
 - expand to different db status detection as needed e.g. postgres
 - move to proper CLI (it's mostly in script form at the moment)
+- (perhaps) provide name based compose configurations, i.e. running `docker-rails development` vs. `docker-rails test` vs. `docker-rails parallel_tests` might be nice to have (and easy) since moste of the configuration is the same, sans `command`.
 
 
 ## Installation
