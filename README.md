@@ -1,4 +1,4 @@
-# Docker::Rails
+# docker-rails
 
 A simplified pattern to execute rails applications within Docker (with a CI build emphasis).
 
@@ -127,7 +127,7 @@ bundle exec rails s -p 3000
 
 ### 5. Submit pull requests!
 
-This is starting off simple, but again, we welcome pulls to make this and the process of using docker for rails much easier.
+This is starting off simple, but again, we welcome pulls to make this and the process of using docker for rails even easier.
 
 
 ## Contributing

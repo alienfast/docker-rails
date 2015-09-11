@@ -11,13 +11,17 @@
 #   https://docs.docker.com/reference/api/docker_remote_api_v1.20
 
 
+# docker-compose -f docker-compose-build-116.yml -p 116 up -d db
+# docker-compose -f docker-compose-build-116.yml -p 116 up  web
+
+
 # enable local usage from cloned repo
 root = File.expand_path('../..', __FILE__)
 $LOAD_PATH << "#{root}/lib" if File.exist?("#{root}/Gemfile")
 
 require 'docker/rails'
 
-BUILD_NAME = '115' # temp should be passed in
+BUILD_NAME = '116' # temp should be passed in
 ENV['BUILD_NAME'] = BUILD_NAME
 
 # Discover ruby version from the Dockerfile image
@@ -117,48 +121,10 @@ xc 'build'
 db_container, db_container_name, web_container, web_container_name = nil
 
 begin
-# Start the db container
+  # Start the db container
   db_container, db_container_name, db_ip_address = *up_container('db', '-d')
 
-# ping db to see if it is ready before continuing
-  require 'rubygems'
-  require 'active_record'
-  require 'mysql2'
-
-  LOOP_LIMIT=60
-  puts "=> Waiting for confirmation of #{db_container_name} db service startup at #{db_ip_address}..."
-  LOOP_LIMIT.times do |i|
-    if i == LOOP_LIMIT - 1
-      puts 'Time out waiting for db to be up.'
-      #docker logs --follow=false $DB_CONTAINER
-      break
-    end
-
-    ActiveRecord::Base.establish_connection ({
-                                                adapter: 'mysql2',
-                                                # host: db_ip_address,
-                                                host: '192.168.99.100',
-                                                port: 3306,
-                                                username: 'root'})
-    # connected = ActiveRecord::Base.connection_pool.with_connection { |con| con.active? }  rescue false
-    connected =
-        begin
-          ActiveRecord::Base.connection_pool.with_connection { |con| con.active? }
-        rescue => e
-          # puts "#{e.class.name}: #{e.message}"
-          false
-        end
-    printf '.'
-    if connected
-      printf 'connected.'
-      break
-    end
-    sleep 1
-  end
-  puts ''
-
-
-# Start the web containers
+  # Start the web containers
   web_container, web_container_name, web_ip_address = *up_container('web')
 
 ensure

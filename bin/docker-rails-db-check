@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+
+# TODO: make docker-rails CLI and put this in the lib
+
+# ping db to see if it is ready before continuing
+require 'rubygems'
+require 'active_record'
+require 'mysql2'
+
+LOOP_LIMIT=60
+puts 'Waiting for confirmation of db service startup...'
+LOOP_LIMIT.times do |i|
+  if i == LOOP_LIMIT - 1
+    printf 'failed to connect.'
+    break
+  end
+
+  ActiveRecord::Base.establish_connection ({
+                                              adapter: 'mysql2',
+                                              host: 'db',
+                                              port: 3306,
+                                              username: 'root'})
+  connected =
+      begin
+        ActiveRecord::Base.connection_pool.with_connection { |con| con.active? }
+      rescue => e
+        # puts "#{e.class.name}: #{e.message}"
+        false
+      end
+  printf '.'
+  if connected
+    printf 'connected.'
+    break
+  end
+  sleep 1
+end
+puts ''
