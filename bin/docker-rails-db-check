@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-# TODO: make docker-rails CLI and put this in the lib
+# TODO: make docker-rails CLI and put this in the lib, add optional ! method to raise if failed
 
 # ping db to see if it is ready before continuing
 require 'rubygems'
@@ -13,7 +13,7 @@ printf 'Waiting for confirmation of db service startup...'
 LOOP_LIMIT.times do |i|
   if i == LOOP_LIMIT - 1
     printf 'failed to connect.'
-    break
+    raise 'Failed to connect to db service.'
   end
 
   ActiveRecord::Base.establish_connection ({
