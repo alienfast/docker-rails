@@ -9,13 +9,14 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 - cleans up all containers **and** volumes once completed
 
 
-**Very much a work in progress - contributions welcome**
+## Work in progress - contributions welcome
 Open to pull requests, while this starts off as one-person's environment, it can be expanded to suit many different configurations.
 
-Needs:
-- remove hardcoded ip for db ip resolution
+TODO:
 - remove or default hardcoded BUILD_NAME
-- expand to different db status detection as needed
+- expand to different db status detection as needed e.g. postgres
+- move to proper CLI (it's mostly in script form at the moment)
+
 
 ## Installation
 
