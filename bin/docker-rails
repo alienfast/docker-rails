@@ -137,10 +137,14 @@ ensure
     rm_v(service_name)
   end
   puts "\nDone."
-  puts "\n\n\n"
 
 # cleanup build interpolated docker-compose.yml
 #   File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
+
+  puts "\n\nCleaning up dangling images..."
+  puts '-----------------------------'
+  exec 'docker images --filter dangling=true -q | xargs docker rmi'
+  puts "\n\n\n"
 
   system 'docker ps -a'
 end
