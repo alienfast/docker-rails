@@ -5,4 +5,5 @@ module Docker
   end
 end
 
+require 'docker/rails/config'
 require 'docker/rails/compose_config'

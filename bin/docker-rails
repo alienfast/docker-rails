@@ -119,14 +119,14 @@ begin
 ensure
   puts "\n\n\n\nStopping containers..."
   puts '-----------------------------'
-  compose_config.configuration.each_key do |service_name|
+  compose_config.each_key do |service_name|
     stop(service_name)
   end
   puts "\nDone."
 
   puts "\n\nRemoving container volumes..."
   puts '-----------------------------'
-  compose_config.configuration.each_key do |service_name|
+  compose_config.each_key do |service_name|
     rm_v(service_name)
   end
   puts "\nDone."

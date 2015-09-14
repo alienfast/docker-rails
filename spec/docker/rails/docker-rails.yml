@@ -1,18 +1,18 @@
 verbose: true
 
+# local environments need elasticsearch, staging/production connects to existing running instance.
 elasticsearch: &elasticsearch
   elasticsearch:
     image: library/elasticsearch:1.7
     ports:
       - "9200:9200"
-    links:
-      - elasticsearch
 
 development:
   docker-compose:
+    <<: *elasticsearch
     web:
-      <<: *elasticsearch
-
+      links:
+        - elasticsearch # standard yaml doesn't merge arrays so we have to add this explicitly
       command: >
         bash -c "
         echo 'Bundling gems'
@@ -41,8 +41,10 @@ development:
 test:
   extract: ['target', 'foo-not-sure-yet']
   docker-compose:
+    <<: *elasticsearch
     web:
-      <<: *elasticsearch
+      links:
+        - elasticsearch # standard yaml doesn't merge arrays so we have to add this explicitly
 
       command: >
         bash -c "
@@ -68,8 +70,10 @@ test:
 parallel_tests:
   extract: ['target', 'foo-not-sure-yet']
   docker-compose:
+    <<: *elasticsearch
     web:
-      <<: *elasticsearch
+      links:
+        - elasticsearch # standard yaml doesn't merge arrays so we have to add this explicitly
 
       command: >
         bash -c "
