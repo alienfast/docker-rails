@@ -1,8 +1,18 @@
 verbose: true
 
+elasticsearch: &elasticsearch
+  elasticsearch:
+    image: library/elasticsearch:1.7
+    ports:
+      - "9200:9200"
+    links:
+      - elasticsearch
+
 development:
   docker-compose:
     web:
+      <<: *elasticsearch
+
       command: >
         bash -c "
         echo 'Bundling gems'
@@ -12,13 +22,13 @@ development:
         && bundle exec spring binstub --all
 
         && echo 'Clearing logs and tmp dirs'
-        && bin/rake log:clear tmp:clear
+        && bundle exec rake log:clear tmp:clear
 
         && echo 'Check and wait for database connection'
         && bundle exec docker-rails-db-check
 
         && echo 'DB rebuild'
-        && bin/rake db:rebuild
+        && bundle exec rake db:rebuild
 
         && echo "Starting app server"
         && bundle exec rails s -p 3000
@@ -32,6 +42,8 @@ test:
   extract: ['target', 'foo-not-sure-yet']
   docker-compose:
     web:
+      <<: *elasticsearch
+
       command: >
         bash -c "
         echo 'Bundling gems'
@@ -41,13 +53,13 @@ test:
         && bundle exec spring binstub --all
 
         && echo 'Clearing logs and tmp dirs'
-        && bin/rake log:clear tmp:clear
+        && bundle exec rake log:clear tmp:clear
 
         && echo 'Check and wait for database connection'
         && bundle exec docker-rails-db-check
 
         && echo 'DB rebuild'
-        && bin/rake db:rebuild
+        && bundle exec rake db:rebuild
 
         && echo 'Tests'
         && RAILS_ENV=test xvfb run -a bundle exec rake spec cucumber
@@ -55,6 +67,32 @@ test:
 
 parallel_tests:
   extract: ['target', 'foo-not-sure-yet']
+  docker-compose:
+    web:
+      <<: *elasticsearch
+
+      command: >
+        bash -c "
+        echo 'Bundling gems'
+        && bundle install --jobs 4 --retry 3
+
+        && echo 'Generating Spring binstubs'
+        && bundle exec spring binstub --all
+
+        && echo 'Clearing logs and tmp dirs'
+        && bundle exec rake log:clear tmp:clear
+
+        && echo 'Check and wait for database connection'
+        && bundle exec docker-rails-db-check
+
+        && echo 'DB rebuild'
+        && bundle exec rake db:rebuild
+
+        && echo 'Tests'
+        && RAILS_ENV=test xvfb run -a bundle exec rake parallel:spec parallel:features
+        "
+
+staging:
   docker-compose:
     web:
       command: >
@@ -66,18 +104,22 @@ parallel_tests:
         && bundle exec spring binstub --all
 
         && echo 'Clearing logs and tmp dirs'
-        && bin/rake log:clear tmp:clear
+        && bundle exec rake log:clear tmp:clear
 
         && echo 'Check and wait for database connection'
         && bundle exec docker-rails-db-check
 
         && echo 'DB rebuild'
-        && bin/rake db:rebuild
+        && bundle exec rake db:migrate
 
-        && echo 'Tests'
-        && RAILS_ENV=test xvfb run -a bundle exec rake parallel:spec parallel:features
+        && echo "Starting app server"
+        && bundle exec rails s -p 3000
+
+        && echo 'Setup and start foreman'
+        && gem install foreman
+        && foreman start
         "
-
+        
 docker-compose:
   web:
     build: .
@@ -90,7 +132,6 @@ docker-compose:
 
     links:
       - db
-      - elasticsearch
 
     volumes_from:
       # Mount the gems data volume container for cached bundler gem files
@@ -100,11 +141,6 @@ docker-compose:
     environment:
       # Tell bundler where to get the files
       - GEM_HOME=#{GEMS_VOLUME_PATH}
-
-  elasticsearch:
-    image: library/elasticsearch:1.7
-    ports:
-      - "9200:9200"
 
   db:
     # https://github.com/docker-library/docs/tree/master/mysql
