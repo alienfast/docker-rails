@@ -23,7 +23,8 @@ $LOAD_PATH << "#{root}/lib" if File.exist?("#{root}/Gemfile")
 
 require 'docker/rails'
 
-BUILD_NAME = '119' # temp should be passed in
+exe_env = 'test'
+BUILD_NAME = '200' # temp should be passed in
 ENV['BUILD_NAME'] = BUILD_NAME
 
 # Discover ruby version from the Dockerfile image
@@ -70,7 +71,13 @@ exec 'rm docker-compose-build-*.yml' rescue ''
 
 # Read docker-compose.yml and rewrite with interpolated variables and BUILD_NAME
 COMPOSE_FILENAME = "docker-compose-build-#{BUILD_NAME}.yml"
-compose_config = Docker::Rails::ComposeConfig.interpolate_file(COMPOSE_FILENAME)
+# compose_config = Docker::Rails::ComposeConfig.interpolate_file(COMPOSE_FILENAME)
+docker_rails_config = Docker::Rails::Config.new
+docker_rails_config.load!(exe_env)
+docker_rails_config.write_docker_compose_file(COMPOSE_FILENAME)
+
+compose_config = Docker::Rails::ComposeConfig.new
+compose_config.load!(nil, COMPOSE_FILENAME)
 
 # convenience to execute docker-compose with file and project params
 def exec_compose(cmd, capture = false)
