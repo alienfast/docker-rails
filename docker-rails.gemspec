@@ -23,5 +23,5 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'rspec'
 
   s.add_dependency 'docker-api'
-  s.add_dependency 'dry-config', '>= 1.2.5'
+  s.add_dependency 'dry-config', '>= 1.2.6'
 end

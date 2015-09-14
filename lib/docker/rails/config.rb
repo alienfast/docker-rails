@@ -25,6 +25,10 @@ module Docker
 
         super(environment, *filenames)
       end
+
+      def write_docker_compose_file(output_filename = 'docker-compose.yml')
+        write_yaml_file(output_filename, self[:'docker-compose'])
+      end
     end
   end
 end
