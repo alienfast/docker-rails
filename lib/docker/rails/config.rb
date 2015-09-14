@@ -29,6 +29,12 @@ module Docker
       def write_docker_compose_file(output_filename = 'docker-compose.yml')
         write_yaml_file(output_filename, self[:'docker-compose'])
       end
+
+      def to_yaml(config = @configuration)
+        yaml = super(config)
+        yaml = yaml.gsub(/command: .$/, 'command: >')
+        yaml
+      end
     end
   end
 end

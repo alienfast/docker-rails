@@ -60,6 +60,12 @@ describe Docker::Rails::Config do
       file = tmp_file
       config.write_docker_compose_file(file)
     end
+
+    it 'should manipulate command to yaml single line' do
+      yaml = config.to_yaml
+      expect(yaml).to include 'command: >'
+      expect(yaml).not_to include 'command: |'
+    end
   end
 
   # it 'should read specific file' do
