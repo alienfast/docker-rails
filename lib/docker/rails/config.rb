@@ -14,12 +14,12 @@ module Docker
 
       def load!(environment, *filenames)
         if environment.nil?
-          puts 'Environment unspecified, generating based on root docker-compose key.'
+          puts 'Environment unspecified, generating docker-compose.yml based on root docker-compose yaml key.'
           environment = 'docker-compose'
         end
 
         if filenames.empty?
-          puts 'Environment unspecified, using docker-rails.yml'
+          puts 'Using docker-rails.yml'
           filenames = ['docker-rails.yml']
         end
 

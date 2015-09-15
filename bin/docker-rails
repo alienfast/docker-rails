@@ -14,9 +14,6 @@
 # docker-compose -f docker-compose-build-119.yml -p 119 up -d db
 # docker-compose -f docker-compose-build-119.yml -p 119 up  web
 
-
-SHOW_COMMANDS = true
-
 # enable local usage from cloned repo
 root = File.expand_path('../..', __FILE__)
 $LOAD_PATH << "#{root}/lib" if File.exist?("#{root}/Gemfile")
@@ -38,8 +35,17 @@ ENV['GEMS_VOLUME_PATH'] = GEMS_VOLUME_PATH
 ENV['GEMS_VOLUME_NAME'] = GEMS_VOLUME_NAME
 
 
+
+# Read docker-compose.yml and rewrite with interpolated variables and BUILD_NAME
+COMPOSE_FILENAME = "docker-compose-build-#{BUILD_NAME}.yml"
+# compose_config = Docker::Rails::ComposeConfig.interpolate_file(COMPOSE_FILENAME)
+docker_rails_config = Docker::Rails::Config.new
+docker_rails_config.load!(exe_env)
+
+VERBOSE = docker_rails_config['verbose'] || false
+
 def exec(cmd, capture = false)
-  puts "Running `#{cmd}`" if SHOW_COMMANDS
+  puts "Running `#{cmd}`" if VERBOSE
   if capture
     output = %x[#{cmd}]
   else
@@ -49,6 +55,15 @@ def exec(cmd, capture = false)
   raise "Failed to execute: `#{cmd}`" unless $?.success?
   output
 end
+
+# Delete old docker compose files
+exec 'rm docker-compose-build-*.yml' rescue ''
+
+docker_rails_config.write_docker_compose_file(COMPOSE_FILENAME)
+
+compose_config = Docker::Rails::ComposeConfig.new
+compose_config.load!(nil, COMPOSE_FILENAME)
+
 
 # -----------
 # Create global gems data volume to cache gems for this version of ruby
@@ -65,19 +80,6 @@ rescue Docker::Error::NotFoundError => e
   puts "Gem data volume container #{GEMS_VOLUME_NAME} created."
 end
 # gems_container.streaming_logs(stdout: true) { |stream, chunk| puts "#{GEMS_VOLUME_NAME}: #{chunk}" }
-
-# Delete old docker compose files
-exec 'rm docker-compose-build-*.yml' rescue ''
-
-# Read docker-compose.yml and rewrite with interpolated variables and BUILD_NAME
-COMPOSE_FILENAME = "docker-compose-build-#{BUILD_NAME}.yml"
-# compose_config = Docker::Rails::ComposeConfig.interpolate_file(COMPOSE_FILENAME)
-docker_rails_config = Docker::Rails::Config.new
-docker_rails_config.load!(exe_env)
-docker_rails_config.write_docker_compose_file(COMPOSE_FILENAME)
-
-compose_config = Docker::Rails::ComposeConfig.new
-compose_config.load!(nil, COMPOSE_FILENAME)
 
 # convenience to execute docker-compose with file and project params
 def exec_compose(cmd, capture = false)
@@ -101,7 +103,7 @@ def up(service_name, options = '')
   # container.streaming_logs(stdout: true) { |stream, chunk| puts "#{service_name}: #{chunk}" }
   # puts container
 
-  [container, container_name]
+  {service_name => {'container' => container, 'container_name' => container_name}}
 end
 
 def rm_v(service_name)
@@ -112,39 +114,53 @@ def stop(service_name)
   exec_compose "stop #{service_name}"
 end
 
+# check before command
+before_command = docker_rails_config['before_command']
+exec before_command unless before_command.nil?
 
 # make sure we are built
 exec_compose 'build'
 
+containers = {}
+
 begin
   # Start the db container
-  up('db', '-d')
+  containers.merge! up('db', '-d')
 
   # Start the web container
-  up('web')
+  containers.merge! up('web')
 
 ensure
-  puts "\n\n\n\nStopping containers..."
-  puts '-----------------------------'
-  compose_config.each_key do |service_name|
-    stop(service_name)
-  end
-  puts "\nDone."
-
-  puts "\n\nRemoving container volumes..."
-  puts '-----------------------------'
-  compose_config.each_key do |service_name|
-    rm_v(service_name)
-  end
-  puts "\nDone."
-
-# cleanup build interpolated docker-compose.yml
-#   File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
-
-  puts "\n\nCleaning up dangling images..."
-  puts '-----------------------------'
-  exec 'docker images --filter dangling=true -q | xargs docker rmi'
-  puts "\n\n\n"
+#   puts "\n\n\n\nStopping containers..."
+#   puts '-----------------------------'
+#   compose_config.each_key do |service_name|
+#     stop(service_name)
+#   end
+#   puts "\nDone."
+#
+#   puts "\n\n\n\nExtracting container results..."
+#   puts '-----------------------------'
+#   containers.each_pair do |service_name, values|
+#     container = values['container']
+#     container_name = values['container_name']
+#     puts "Extracting for #{service_name} from #{container_name}"
+#   end
+#
+#
+#   puts "\n\nRemoving container volumes..."
+#   puts '-----------------------------'
+#   compose_config.each_key do |service_name|
+#     rm_v(service_name)
+#   end
+#   puts "\nDone."
+#
+# # cleanup build interpolated docker-compose.yml
+# #   File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
+#
+#   puts "\n\nCleaning up dangling images..."
+#   puts '-----------------------------'
+#   exec 'docker images --filter dangling=true -q | xargs docker rmi'
+#   puts "\n\n\n"
 
   system 'docker ps -a'
 end
