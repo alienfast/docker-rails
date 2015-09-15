@@ -131,36 +131,35 @@ begin
   containers.merge! up('web')
 
 ensure
-#   puts "\n\n\n\nStopping containers..."
-#   puts '-----------------------------'
-#   compose_config.each_key do |service_name|
-#     stop(service_name)
-#   end
-#   puts "\nDone."
-#
-#   puts "\n\n\n\nExtracting container results..."
-#   puts '-----------------------------'
-#   containers.each_pair do |service_name, values|
-#     container = values['container']
-#     container_name = values['container_name']
-#     puts "Extracting for #{service_name} from #{container_name}"
-#   end
-#
-#
-#   puts "\n\nRemoving container volumes..."
-#   puts '-----------------------------'
-#   compose_config.each_key do |service_name|
-#     rm_v(service_name)
-#   end
-#   puts "\nDone."
-#
-# # cleanup build interpolated docker-compose.yml
-# #   File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
-#
-#   puts "\n\nCleaning up dangling images..."
-#   puts '-----------------------------'
-#   exec 'docker images --filter dangling=true -q | xargs docker rmi'
-#   puts "\n\n\n"
+  puts "\n\n\n\nStopping containers..."
+  puts '-----------------------------'
+  compose_config.each_key do |service_name|
+    stop(service_name)
+  end
+  puts "\nDone."
+
+  # puts "\n\n\n\nExtracting container results..."
+  # puts '-----------------------------'
+  # containers.each_pair do |service_name, values|
+  #   container = values['container']
+  #   container_name = values['container_name']
+  #   puts "Extracting for #{service_name} from #{container_name}"
+  # end
+
+  puts "\n\nRemoving container volumes..."
+  puts '-----------------------------'
+  compose_config.each_key do |service_name|
+    rm_v(service_name)
+  end
+  puts "\nDone."
+
+  # cleanup build interpolated docker-compose.yml
+  #   File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
+
+  puts "\n\nCleaning up dangling images..."
+  puts '-----------------------------'
+  exec 'docker images --filter dangling=true -q | xargs docker rmi'
+  puts "\n\n\n"
 
   system 'docker ps -a'
 end
