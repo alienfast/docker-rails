@@ -21,7 +21,7 @@ $LOAD_PATH << "#{root}/lib" if File.exist?("#{root}/Gemfile")
 require 'docker/rails'
 
 exe_env = 'test'
-BUILD_NAME = '202' # temp should be passed in
+BUILD_NAME = '204' # temp should be passed in
 ENV['BUILD_NAME'] = BUILD_NAME
 
 # Discover ruby version from the Dockerfile image
@@ -95,17 +95,17 @@ def get_container_name(service_name)
   $1
 end
 
-def up(service_name, options = '')
-  exec_compose "up #{options} #{service_name}"
-  container_name = get_container_name(service_name)
-  puts "#{service_name}: container_name #{container_name}"
-
-  container = Docker::Container.get(container_name)
-  # container.streaming_logs(stdout: true) { |stream, chunk| puts "#{service_name}: #{chunk}" }
-  # puts container
-
-  {service_name => {'container' => container, 'container_name' => container_name}}
-end
+# def up(service_name, options = '')
+#   exec_compose "up #{options} #{service_name}"
+#   container_name = get_container_name(service_name)
+#   puts "#{service_name}: container_name #{container_name}"
+#
+#   container = Docker::Container.get(container_name)
+#   # container.streaming_logs(stdout: true) { |stream, chunk| puts "#{service_name}: #{chunk}" }
+#   # puts container
+#
+#   {service_name => {'container' => container, 'container_name' => container_name}}
+# end
 
 def rm_v(service_name)
   exec_compose "rm -v --force #{service_name}"
@@ -116,7 +116,9 @@ def stop(service_name)
 end
 
 def skip?(command)
-  skip = DOCKER_RAILS_CONFIG[:skip].include? command.to_s # FIXME hack constant to be able to access config
+  skips = DOCKER_RAILS_CONFIG[:skip]
+  return false if skips.nil?
+  skip = skips.include? command.to_s # FIXME hack constant to be able to access config
   puts "Skipping #{command}" if skip && VERBOSE
   skip
 end
@@ -125,17 +127,10 @@ end
 before_command = docker_rails_config['before_command']
 (exec before_command unless before_command.nil?) unless skip? :before_command
 
-# make sure we are built
-exec_compose 'build' unless skip? :build
-
 containers = {}
-
 begin
-  # Start the db container
-  containers.merge! up('db', '-d') unless skip? :up
-
-  # Start the web container
-  containers.merge! up('web') unless skip? :up
+  # Run the compose configuration
+  exec_compose 'up' unless skip? :up
 
 ensure
   unless skip? :stop
