@@ -21,7 +21,7 @@ $LOAD_PATH << "#{root}/lib" if File.exist?("#{root}/Gemfile")
 require 'docker/rails'
 
 exe_env = 'test'
-BUILD_NAME = '200' # temp should be passed in
+BUILD_NAME = '202' # temp should be passed in
 ENV['BUILD_NAME'] = BUILD_NAME
 
 # Discover ruby version from the Dockerfile image
@@ -33,7 +33,6 @@ GEMS_VOLUME_PATH = "/gems/#{BUILD_RUBY_VERSION}"
 GEMS_VOLUME_NAME = "gems-#{BUILD_RUBY_VERSION}"
 ENV['GEMS_VOLUME_PATH'] = GEMS_VOLUME_PATH
 ENV['GEMS_VOLUME_NAME'] = GEMS_VOLUME_NAME
-
 
 
 # Read docker-compose.yml and rewrite with interpolated variables and BUILD_NAME
@@ -60,6 +59,8 @@ end
 exec 'rm docker-compose-build-*.yml' rescue ''
 
 docker_rails_config.write_docker_compose_file(COMPOSE_FILENAME)
+
+DOCKER_RAILS_CONFIG = docker_rails_config
 
 compose_config = Docker::Rails::ComposeConfig.new
 compose_config.load!(nil, COMPOSE_FILENAME)
@@ -114,52 +115,72 @@ def stop(service_name)
   exec_compose "stop #{service_name}"
 end
 
+def skip?(command)
+  skip = DOCKER_RAILS_CONFIG[:skip].include? command.to_s # FIXME hack constant to be able to access config
+  puts "Skipping #{command}" if skip && VERBOSE
+  skip
+end
+
 # check before command
 before_command = docker_rails_config['before_command']
-exec before_command unless before_command.nil?
+(exec before_command unless before_command.nil?) unless skip? :before_command
 
 # make sure we are built
-exec_compose 'build'
+exec_compose 'build' unless skip? :build
 
 containers = {}
 
 begin
   # Start the db container
-  containers.merge! up('db', '-d')
+  containers.merge! up('db', '-d') unless skip? :up
 
   # Start the web container
-  containers.merge! up('web')
+  containers.merge! up('web') unless skip? :up
 
 ensure
-  puts "\n\n\n\nStopping containers..."
-  puts '-----------------------------'
-  compose_config.each_key do |service_name|
-    stop(service_name)
+  unless skip? :stop
+    puts "\n\n\n\nStopping containers..."
+    puts '-----------------------------'
+    compose_config.each_key do |service_name|
+      stop(service_name)
+    end
+    # puts "\nDone."
   end
-  puts "\nDone."
 
-  # puts "\n\n\n\nExtracting container results..."
-  # puts '-----------------------------'
-  # containers.each_pair do |service_name, values|
-  #   container = values['container']
-  #   container_name = values['container_name']
-  #   puts "Extracting for #{service_name} from #{container_name}"
-  # end
-
-  puts "\n\nRemoving container volumes..."
-  puts '-----------------------------'
-  compose_config.each_key do |service_name|
-    rm_v(service_name)
+  unless skip? :extract
+    puts "\n\n\n\nExtracting container results..."
+    puts '-----------------------------'
+    # containers.each_pair do |service_name, values|
+    #   container = values['container']
+    #   container_name = values['container_name']
+    #   puts "Extracting for #{service_name} from #{container_name}"
+    # end
   end
-  puts "\nDone."
 
-  # cleanup build interpolated docker-compose.yml
-  #   File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
+  unless skip? :remove_volumes
+    puts "\n\nRemoving container volumes..."
+    puts '-----------------------------'
+    compose_config.each_key do |service_name|
+      rm_v(service_name)
+    end
+    # puts "\nDone."
+  end
 
-  puts "\n\nCleaning up dangling images..."
-  puts '-----------------------------'
-  exec 'docker images --filter dangling=true -q | xargs docker rmi'
-  puts "\n\n\n"
+  unless skip? :remove_compose
+    # cleanup build interpolated docker-compose.yml
+    File.delete COMPOSE_FILENAME if File.exists? COMPOSE_FILENAME
+  end
 
-  system 'docker ps -a'
+  unless skip? :remove_dangling
+    puts "\n\nCleaning up dangling images..."
+    puts '-----------------------------'
+    exec 'docker images --filter dangling=true -q | xargs docker rmi'
+    # puts "\nDone."
+  end
+
+  unless skip? :remaining_containers
+    puts "\n\nRemaining containers on host..."
+    puts '-----------------------------'
+    system 'docker ps -a'
+  end
 end
