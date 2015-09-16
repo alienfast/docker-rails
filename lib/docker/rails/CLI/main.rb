@@ -6,7 +6,6 @@ module Docker
         # default_task :help
 
         desc 'db_check DATABASE_TYPE', 'Runs db_check'
-        option :count, default: 60, desc: 'Number of attempts'
         subcommand 'db_check', Docker::Rails::CLI::DbCheck
 
         desc 'hello NAME', 'This will greet you'
