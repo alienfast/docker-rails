@@ -22,9 +22,9 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'rake'
   s.add_development_dependency 'rspec'
 
-  # necessary as dependencies for travis?
-  s.add_dependency 'mysql2', '~> 0.3.18' # http://stackoverflow.com/a/32466950/2363935
-  s.add_dependency 'activerecord'
+  # only needed at runtime for db_check mysql
+  s.add_development_dependency 'mysql2', '~> 0.3.18' # http://stackoverflow.com/a/32466950/2363935
+  s.add_development_dependency 'activerecord'
 
   s.add_dependency 'docker-api'
   s.add_dependency 'dry-config', '>= 1.2.6'
