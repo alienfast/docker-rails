@@ -14,6 +14,9 @@ module Docker
         option :password, desc: 'Password-less login if unspecified'
 
         def mysql
+
+          App.instance
+
           # ping db to see if it is ready before continuing
           require 'rubygems'
           require 'active_record'
