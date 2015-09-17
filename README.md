@@ -3,22 +3,36 @@
 A simplified pattern to execute rails applications within Docker (with a CI build emphasis).
 
 ## Features
-- cached global bundler data volume (automatic) based on ruby version
-- interpolates `docker-compose.yml` making CI builds much easier
-- starts `db` container first and continues with `web`
-- function provided for docker-compose `command` to check if db is ready, currently executed as script `docker-rails-db-check`
-- cleans up all containers **and** volumes once completed
+- Provides individual functions for development/test usage, or a full workflow for CI usage (with automated container, volume, and image cleanup).
+- Automated cached global gems data volume (automatic) based on ruby version
+- DRY declarative `docker-rails.yml` allowing multiple environments to be defined with an inherited `docker-compose` configuration
+- Interpolates `docker-compose.yml` making CI builds much easier
+- DB check CLI function provided for docker-compose `command` to check if db is ready
 
+
+## Usage
+
+```bash
+Commands:
+  docker-rails ci <build_name> <environment_name>          # Execute the works, everything with cleanup included i.e. bundle exec docker-rails ci 222 test
+  docker-rails compose <build_name> <environment_name>     # Writes a resolved docker-compose.yml file
+  docker-rails db_check <db>                               # Runs db_check
+  docker-rails gems_volume <command>                       # Gems volume management
+  docker-rails help [COMMAND]                              # Describe available commands or one specific command
+  docker-rails rm_compose                                  # Remove generated docker_compose file
+  docker-rails rm_dangling                                 # Remove danging images
+  docker-rails rm_volumes <build_name> <environment_name>  # Stop all running containers and remove corresponding volumes for the given build_name/environment_name
+  docker-rails show_all_containers                         # Show all remaining containers regardless of state
+  docker-rails stop <build_name> <environment_name>        # Stop all running containers for the given build_name/environment_name
+  docker-rails up <build_name> <environment_name>          # Up the docker-compose configuration for the given build_name/environment_name
+```
 
 ## Work in progress - contributions welcome
-Open to pull requests, while this starts off as one-person's environment, it can be expanded to suit many different configurations.
+Open to pull requests. It can be expanded to suit many different configurations.
 
 TODO:
-- **CLI** - move to proper CLI (it's mostly in script form at the moment)
-- **Declarative extraction** - [#4? since volumes are deleted](https://github.com/alienfast/docker-rails/issues/4), in the case of CI, we need to copy/extract out the build artifacts before deleting the volumes permanently
-- **Hardcoding** - remove or default [hardcoded BUILD_NAME](https://github.com/alienfast/docker-rails/issues/1)
-- **DB versatility** - expand to different db status detection as needed e.g. postgres
-- **Declarative command configurations** [#4 provide name based compose configurations](https://github.com/alienfast/docker-rails/issues/4), i.e. running `docker-rails development` vs. `docker-rails test` vs. `docker-rails parallel_tests` might be nice to have (and easy) since most of the configuration is the same, sans `command`.
+- **Permissions** - [Shared volume for project has files written as root](https://github.com/alienfast/docker-rails/issues/5)
+- **DB versatility** - expand to different db status detection as-needed e.g. postgres. CLI is now modularized to allow for this.
 
 
 ## Installation
@@ -56,82 +70,183 @@ RUN apt-get update -qq && \
 
 # https://github.com/docker/docker/issues/4032
 ENV DEBIAN_FRONTEND newt
-
-ADD . /project
-WORKDIR /project
 ```
 
-### 2. Add a docker-compose.yml
+### 2. Add a docker-rails.yml
 
-Environment variables will be interpolated, so feel free to use them.
+Environment variables will be interpolated, so feel free to use them. 
+Below shows an example with all of the environments `development | test | parallel_tests | staging' to show reuse of the primary `docker-compose' configuration. 
 
 ```yaml
-web:
-  build: .
-  # e.g. engine dummy, otherwise omit.
-  working_dir: /project/spec/dummy
-  command: >
-    bash -c
-    "
-    echo 'Bundling gems'
-    && bundle install --jobs 4 --retry 3
-     
-    && echo 'Generating Spring binstubs'
-    && bundle exec spring binstub --all
-     
-    && echo 'Clearing logs and tmp dirs'
-    && bin/rake log:clear tmp:clear
-     
-    && echo 'Check and wait for database connection'
-    && bundle exec docker-rails-db-check
-     
-    && echo 'Setting up new db if one doesn't exist'
-    && bin/rake db:version || { bundle exec rake db:setup; }
-     
-    && echo 'Removing contents of tmp dirs'
-    && bin/rake tmp:clear
-     
-    && echo 'Starting app server'
-    && bundle exec rails s -p 3000
-     
-    && echo 'Setup and start foreman'
-    && gem install foreman
-    && foreman start
-    "
-  ports:
-    - "3000:3000"
-  links:
-    - db
-  volumes:
-    - .:/project
-  links:
-    - db
-  volumes_from:
-    # Mount the gems data volume container for cached bundler gem files
-    - #{GEMS_VOLUME_NAME}
-  environment:
-    # Tell bundler where to get the files
-    - GEM_HOME=#{GEMS_VOLUME_PATH}
+verbose: true
 
-elasticsearch:
-  image: library/elasticsearch:1.7
-  ports:
-    - "9200:9200"
-db:
-  image: library/mysql:5.7.6
-  ports:
-    - "3306:3306"
-  environment:
-    - MYSQL_ALLOW_EMPTY_PASSWORD=true
+# local environments need elasticsearch, staging/production connects to existing running instance.
+elasticsearch: &elasticsearch
+  elasticsearch:
+    image: library/elasticsearch:1.7
+    ports:
+      - "9200"
+
+development:
+  docker-compose:
+    <<: *elasticsearch
+    web:
+      links:
+        - elasticsearch # standard yaml doesn't merge arrays so we have to add this explicitly
+      environment:
+        - RAILS_ENV=development
+      command: >
+        bash -c "
+
+        echo 'Bundling gems'
+        && bundle install --jobs 4 --retry 3
+
+        && echo 'Generating Spring binstubs'
+        && bundle exec spring binstub --all
+
+        && echo 'Clearing logs and tmp dirs'
+        && bundle exec rake log:clear tmp:clear
+
+        && echo 'Check and wait for database connection'
+        && bundle exec docker-rails db_check mysql
+
+        && echo 'Setting up new db if one doesn't exist'
+        && bundle exec rake db:version || { bundle exec rake db:setup; }
+
+        && echo "Starting app server"
+        && bundle exec rails s -p 3000
+
+        && echo 'Setup and start foreman'
+        && gem install foreman
+        && foreman start
+        "
+
+test:
+  before_command: rm -Rf target
+  docker-compose:
+    <<: *elasticsearch
+    web:
+      links:
+        - elasticsearch # standard yaml doesn't merge arrays so we have to add this explicitly
+      environment:
+        - RAILS_ENV=test
+      command: >
+        bash -c "
+        echo 'Bundling gems'
+        && bundle install --jobs 4 --retry 3
+
+        && echo 'Clearing logs and tmp dirs'
+        && bundle exec rake log:clear tmp:clear
+
+        && echo 'Check and wait for database connection'
+        && bundle exec docker-rails db_check mysql
+
+        && echo 'Setting up new db if one doesn't exist'
+        && bundle exec rake db:version || { bundle exec rake db:setup; }
+
+        && echo 'Tests'
+        && cd ../..
+        && xvfb-run -a bundle exec rake spec cucumber
+        "
+
+parallel_tests:
+  before_command: rm -Rf target
+  docker-compose:
+    <<: *elasticsearch
+    web:
+      links:
+        - elasticsearch # standard yaml doesn't merge arrays so we have to add this explicitly
+      environment:
+        - RAILS_ENV=test
+      command: >
+        bash -c "
+
+        echo 'Bundling gems'
+        && bundle install --jobs 4 --retry 3
+
+        && echo 'Clearing logs and tmp dirs'
+        && bundle exec rake log:clear tmp:clear
+
+        && echo 'Check and wait for database connection'
+        && bundle exec docker-rails db_check mysql
+
+        && echo 'Setting up new db if one doesn't exist'
+        && bundle exec rake parallel:drop parallel:create parallel:migrate parallel:seed
+
+        && echo 'Tests'
+        && cd ../..
+        && xvfb-run -a bundle exec rake parallel:spec parallel:features
+        "
+
+staging:
+  docker-compose:
+    web:
+      environment:
+        - RAILS_ENV=staging
+      command: >
+        bash -c "
+
+        echo 'Bundling gems'
+        && bundle install --jobs 4 --retry 3
+
+        && echo 'Clearing logs and tmp dirs'
+        && bundle exec rake log:clear tmp:clear
+
+        && echo 'Check and wait for database connection'
+        && bundle exec docker-rails db_check mysql
+
+        && echo 'Setting up new db if one doesn't exist'
+        && bundle exec rake db:migrate
+
+        && echo "Starting app server"
+        && bundle exec rails s -p 3000
+
+        && echo 'Setup and start foreman'
+        && gem install foreman
+        && foreman start
+        "
+
+docker-compose:
+  web:
+    build: .
+    working_dir: /project/spec/dummy
+    ports:
+      - "3000"
+
+    links:
+      - db
+
+    volumes:
+      - .:/project
+
+    volumes_from:
+      # Mount the gems data volume container for cached bundler gem files
+      - #{GEMS_VOLUME_NAME}
+
+    # https://docs.docker.com/v1.6/docker-compose/cli/#environment-variables
+    environment:
+      # Tell bundler where to get the files
+      - GEM_HOME=#{GEMS_VOLUME_PATH}
+
+  db:
+    # https://github.com/docker-library/docs/tree/master/mysql
+    image: library/mysql:5.7.6
+    ports:
+      - "3306"
+
+    # https://github.com/docker-library/docs/tree/master/mysql#environment-variables
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=true
 ```
 
 ### 3. Run it
 
-`bundle exec docker-rails`
+`bundle exec docker-rails ci 111 test`
 
 ### 4. Submit pull requests!
 
-This is starting off simple, but again, we welcome pulls to make this and the process of using docker for rails even easier.
+The intent for this is to make rails with docker a snap.  The code should be modular enough that adding a check for a different database etc should be quite simple.
+We are open to expanding functionality beyond what is already provided.
 
 
 ## Contributing

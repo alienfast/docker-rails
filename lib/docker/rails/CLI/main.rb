@@ -12,7 +12,7 @@ module Docker
         subcommand 'gems_volume', Docker::Rails::CLI::GemsVolume
 
 
-        desc 'ci <build_name> <environment_name>', 'Execute the works, everything with cleanup included i.e. bundle exec docker-rails all 222 test'
+        desc 'ci <build_name> <environment_name>', 'Execute the works, everything with cleanup included i.e. bundle exec docker-rails ci 222 test'
         long_desc <<-D
 
           `ci` will run the targeted environment_name with the given build number then cleanup everything upon completion.
@@ -35,20 +35,20 @@ module Docker
           end
         end
 
-        desc 'compose <build_name> <environment_name>', 'Writes compose file'
+        desc 'compose <build_name> <environment_name>', 'Writes a resolved docker-compose.yml file'
 
         def compose(build_name, environment_name)
           App.configured(build_name, environment_name).compose
         end
 
-        desc 'before <build_name> <environment_name>', 'Invoke before_command'
+        desc 'before <build_name> <environment_name>', 'Invoke before_command', hide: true
 
         def before(build_name, environment_name)
           invoke :compose
           App.configured(build_name, environment_name).exec_before_command
         end
 
-        desc 'up <build_name> <environment_name>', 'up everything'
+        desc 'up <build_name> <environment_name>', 'Up the docker-compose configuration for the given build_name/environment_name'
 
         def up(build_name, environment_name)
 
@@ -57,14 +57,14 @@ module Docker
           App.configured(build_name, environment_name).exec_up
         end
 
-        desc 'stop <build_name> <environment_name>', 'Stop all running containers'
+        desc 'stop <build_name> <environment_name>', 'Stop all running containers for the given build_name/environment_name'
 
         def stop(build_name, environment_name)
           invoke :compose
           App.configured(build_name, environment_name).exec_stop
         end
 
-        desc 'rm_volumes <build_name> <environment_name>', 'Stop and remove all running container volumes'
+        desc 'rm_volumes <build_name> <environment_name>', 'Stop all running containers and remove corresponding volumes for the given build_name/environment_name'
 
         def rm_volumes(build_name, environment_name)
           invoke :stop

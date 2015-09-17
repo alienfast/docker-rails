@@ -46,10 +46,10 @@ describe Docker::Rails::Config do
 
       web = config[:'docker-compose'][:web]
       expect(web[:links]).to match_array %w(elasticsearch db)
-      expect(web[:ports]).to match_array ['3000:3000']
+      expect(web[:ports]).to match_array ['3000']
 
       elasticsearch = config[:'docker-compose'][:elasticsearch]
-      expect(elasticsearch[:ports]).to match_array ['9200:9200']
+      expect(elasticsearch[:ports]).to match_array ['9200']
 
       # ensure no unnecessary environments make it into the resolved configuration
       expect(config.development).to be_nil
