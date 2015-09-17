@@ -1,7 +1,6 @@
 module Docker
   module Rails
     module CLI
-      require 'thor'
       class DbCheck < Thor
 
         default_task :help
@@ -14,9 +13,6 @@ module Docker
         option :password, desc: 'Password-less login if unspecified'
 
         def mysql
-
-          App.instance
-
           # ping db to see if it is ready before continuing
           require 'rubygems'
           require 'active_record'
