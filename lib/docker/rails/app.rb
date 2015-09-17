@@ -5,6 +5,18 @@ module Docker
       include Singleton
       attr_reader :config, :compose_config, :ruby_version, :build_name, :environment_name, :gems_volume_path, :gems_volume_name, :compose_filename
 
+      class << self
+        def configured(build_name, environment_name)
+          app = App.instance
+          if app.is_configured?
+            puts "Already configured"
+          else
+            app.configure(build_name: build_name, environment_name: environment_name)
+          end
+          app
+        end
+      end
+
       def initialize
         discover_ruby_version
         set_gems_volume_vars
@@ -17,14 +29,19 @@ module Docker
         # load the docker-rails.yml
         @config = Docker::Rails::Config.new
         @config.load!(@environment_name)
+
+        @is_configured = true
+      end
+
+      def is_configured?
+        @is_configured || false
       end
 
       def compose
         # Write a docker-compose.yml with interpolated variables
-        @compose_filename = compose_filename_from @build_name
+        @compose_filename = compose_filename_from @build_name, @environment_name
 
-        # Delete old docker compose files
-        exec "rm #{compose_filename_from '*'}" rescue ''
+        rm_compose
 
         @config.write_docker_compose_file(@compose_filename)
 
@@ -32,9 +49,50 @@ module Docker
         @compose_config.load!(nil, @compose_filename)
       end
 
+      def rm_compose
+        # Delete old docker compose files
+        exec "rm #{compose_filename_from '*', '*'}" rescue ''
+      end
+
       def exec_before_command
         before_command = @config['before_command']
-        (exec before_command unless before_command.nil?) unless skip? :before_command
+        (exec before_command unless before_command.nil?) #unless skip? :before_command
+      end
+
+      def exec_up
+        # Run the compose configuration
+        exec_compose 'up' #unless skip? :up
+      end
+
+      def exec_stop
+        puts "\n\n\n\nStopping containers..."
+        puts '-----------------------------'
+        @compose_config.each_key do |service_name|
+          stop(service_name)
+        end
+        # puts "\nDone."
+      end
+
+      def exec_remove_volumes
+        puts "\n\nRemoving container volumes..."
+        puts '-----------------------------'
+        @compose_config.each_key do |service_name|
+          rm_v(service_name)
+        end
+        # puts "\nDone."
+      end
+
+      def rm_dangling
+        puts "\n\nCleaning up dangling images..."
+        puts '-----------------------------'
+        exec 'docker images --filter dangling=true -q | xargs docker rmi'
+        # puts "\nDone."
+      end
+
+      def show_all_containers
+        puts "\n\nAll remaining containers..."
+        puts '-----------------------------'
+        system 'docker ps -a'
       end
 
       protected
@@ -64,7 +122,7 @@ module Docker
         $1
       end
 
-      # def up(service_name, options = '')
+      # def up_service(service_name, options = '')
       #   exec_compose "up #{options} #{service_name}"
       #   container_name = get_container_name(service_name)
       #   puts "#{service_name}: container_name #{container_name}"
@@ -84,17 +142,17 @@ module Docker
         exec_compose "stop #{service_name}"
       end
 
-      def skip?(command)
-        skips = @config[:skip]
-        return false if skips.nil?
-        skip = skips.include? command.to_s # FIXME hack constant to be able to access config
-        puts "Skipping #{command}" if skip && verbose?
-        skip
-      end
+      # def skip?(command)
+      #   skips = @config[:skip]
+      #   return false if skips.nil?
+      #   skip = skips.include? command.to_s
+      #   puts "Skipping #{command}" if skip && verbose?
+      #   skip
+      # end
 
 
       def verbose?
-        @verbose ||= @config['verbose'] || false
+        @verbose ||= (@config['verbose'] unless @config.nil?) || false
       end
 
       def set_gems_volume_vars
@@ -110,8 +168,8 @@ module Docker
       end
 
       # accessible so that we can delete patterns
-      def compose_filename_from(build_name)
-        "docker-compose-build-#{build_name}.yml"
+      def compose_filename_from(build_name, environment_name)
+        "docker-compose-build-#{build_name}-#{environment_name}.yml"
       end
     end
   end

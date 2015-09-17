@@ -6,9 +6,9 @@ module Docker
         default_task :help
 
         desc 'create', 'Create a gem volume'
-        def create
+        def create(build_name = nil, environment_name = nil)
           # Create global gems data volume to cache gems for this version of ruby
-          app = App.instance
+          app = App.configured(build_name, environment_name)
           begin
             Docker::Container.get(app.gems_volume_name)
             puts "Gem data volume container #{app.gems_volume_name} already exists."
@@ -18,6 +18,9 @@ module Docker
             puts "Gem data volume container #{app.gems_volume_name} created."
           end
         end
+
+
+        # TODO: add destroy volume
       end
     end
   end
