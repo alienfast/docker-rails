@@ -1,4 +1,7 @@
 # docker-rails
+[![Gem Version](https://badge.fury.io/rb/docker-rails.svg)](https://rubygems.org/gems/docker-rails)
+[![Build Status](https://travis-ci.org/alienfast/docker-rails.svg)](https://travis-ci.org/alienfast/docker-rails)
+[![Code Climate](https://codeclimate.com/github/alienfast/docker-rails/badges/gpa.svg)](https://codeclimate.com/github/alienfast/docker-rails)
 
 A simplified pattern to execute rails applications within Docker (with a CI build emphasis).
 
