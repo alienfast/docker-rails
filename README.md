@@ -77,7 +77,7 @@ ENV DEBIAN_FRONTEND newt
 ### 2. Add a docker-rails.yml
 
 Environment variables will be interpolated, so feel free to use them. 
-Below shows an example with all of the environments `development | test | parallel_tests | staging' to show reuse of the primary `docker-compose' configuration. 
+Below shows an example with all of the environments `development | test | parallel_tests | staging` to show reuse of the primary `docker-compose' configuration. 
 
 ```yaml
 verbose: true
@@ -208,6 +208,7 @@ staging:
         && foreman start
         "
 
+# base docker-compose configuration for all environments
 docker-compose:
   web:
     build: .
