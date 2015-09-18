@@ -4,112 +4,121 @@ module Docker
       class Main < Thor
         # default_task :help
 
-        desc 'db_check <db>', 'Runs db_check'
+        class_option :build, aliases: ['-b'], type: :string, desc: 'Build name e.g. 123', default: '1'
+
+        desc 'db_check <db>', 'Runs db_check e.g. bundle exec docker-rails db_check mysql'
         subcommand 'db_check', Docker::Rails::CLI::DbCheck
 
-
-        desc 'gems_volume <command>', 'Gems volume management'
+        desc 'gems_volume <command>', 'Gems volume management e.g. bundle exec docker-rails gems_volume create'
         subcommand 'gems_volume', Docker::Rails::CLI::GemsVolume
 
-
-        desc 'ci <build_name> <environment_name>', 'Execute the works, everything with cleanup included i.e. bundle exec docker-rails ci 222 test'
+        desc 'ci <target>', 'Execute the works, everything with cleanup included e.g. bundle exec docker-rails ci --build=222 test'
         long_desc <<-D
 
-          `ci` will run the targeted environment_name with the given build number then cleanup everything upon completion.
+          `ci` will run the target with the given build (-b) number then cleanup everything upon completion.
           While it is named `ci`, there is no harm in using this for other environments as long as you understand that volumes
           and remaining dangling images will be cleaned up upon completion.
         D
 
-        def ci(build_name, environment_name)
+        def ci(target)
+          # init singleton with full options
+          App.configured(target, options)
+
           invoke :compose
-          invoke CLI::GemsVolume, :create
+          invoke CLI::GemsVolume, :create, [target], options
           invoke :before
           begin
             invoke :up
           ensure
-            invoke :stop
-            invoke :rm_volumes
-            invoke :rm_compose
-            invoke :rm_dangling
-            invoke :show_all_containers
+            invoke :cleanup
           end
         end
 
-        desc 'compose <build_name> <environment_name>', 'Writes a resolved docker-compose.yml file'
-
-        def compose(build_name, environment_name)
-          App.configured(build_name, environment_name).compose
-        end
-
-        desc 'before <build_name> <environment_name>', 'Invoke before_command', hide: true
-
-        def before(build_name, environment_name)
-          invoke :compose
-          App.configured(build_name, environment_name).exec_before_command
-        end
-
-        desc 'up <build_name> <environment_name>', 'Up the docker-compose configuration for the given build_name/environment_name'
-
-        def up(build_name, environment_name)
-
-          invoke CLI::GemsVolume, :create
-          invoke :before
-          App.configured(build_name, environment_name).exec_up
-        end
-
-        desc 'stop <build_name> <environment_name>', 'Stop all running containers for the given build_name/environment_name'
-
-        def stop(build_name, environment_name)
-          invoke :compose
-          App.configured(build_name, environment_name).exec_stop
-        end
-
-        desc 'rm_volumes <build_name> <environment_name>', 'Stop all running containers and remove corresponding volumes for the given build_name/environment_name'
-
-        def rm_volumes(build_name, environment_name)
+        desc 'cleanup <target>', 'Runs container cleanup functions stop, rm_volumes, rm_compose, rm_dangling, ps_all e.g. bundle exec docker-rails cleanup --build=222 development'
+        def cleanup(target)
           invoke :stop
-          App.configured(build_name, environment_name).exec_remove_volumes
+          invoke :rm_volumes
+          invoke :rm_compose
+          invoke :rm_dangling
+          invoke :ps_all
         end
 
-        desc 'rm_compose', 'Remove generated docker_compose file'
+        desc 'up <target>', 'Up the docker-compose configuration for the given build/target. Use -d for detached mode. e.g. bundle exec docker-rails up -d --build=222 test'
 
-        def rm_compose(build_name = nil, environment_name = nil)
+        option :detached, aliases: ['-d'], type: :boolean, desc: 'Detached mode: Run containers in the background'
+
+        def up(target)
+          # init singleton with full options
+          app = App.configured(target, options)
+          base_options = options.except(:detached)
+
+          invoke CLI::GemsVolume, :create, [target], base_options
+          invoke :before, [target], base_options
+
+          compose_options = ''
+          compose_options = '-d' if options[:detached]
+
+          app.exec_up(compose_options)
+        end
+
+        desc 'compose <target>', 'Writes a resolved docker-compose.yml file e.g. bundle exec docker-rails compose --build=222 test'
+
+        def compose(target)
+          App.configured(target, options).compose
+        end
+
+        desc 'before <target>', 'Invoke before_command', hide: true
+
+        def before(target)
+          invoke :compose, [target]
+          App.configured(target, options).exec_before_command
+        end
+
+
+        desc 'stop <target>', 'Stop all running containers for the given build/target e.g. bundle exec docker-rails stop --build=222 development'
+
+        def stop(target)
+          invoke :compose
+          App.configured(target, options).exec_stop
+        end
+
+        desc 'rm_volumes <target>', 'Stop all running containers and remove corresponding volumes for the given build/target e.g. bundle exec docker-rails rm_volumes --build=222 development'
+
+        def rm_volumes(target)
+          invoke :stop
+          App.configured(target, options).exec_remove_volumes
+        end
+
+        desc 'rm_compose', 'Remove generated docker_compose file e.g. bundle exec docker-rails rm_compose --build=222 development'
+
+        def rm_compose(build = nil, target = nil)
           App.instance.rm_compose
         end
 
-        desc 'rm_dangling', 'Remove danging images'
+        desc 'rm_dangling', 'Remove danging images e.g. bundle exec docker-rails rm_dangling'
 
-        def rm_dangling(build_name = nil, environment_name = nil)
+        def rm_dangling(build = nil, target = nil)
           App.instance.rm_dangling
         end
 
-        desc 'show_all_containers', 'Show all remaining containers regardless of state'
+        desc 'ps <target>', 'List containers for the target compose configuration e.g. bundle exec docker-rails ps --build=222 development'
 
-        def show_all_containers(build_name = nil, environment_name = nil)
+        def ps(target)
+          invoke :compose
+          App.configured(target, options).exec_ps
+        end
+
+        desc 'ps_all', 'List all remaining containers regardless of state e.g. bundle exec docker-rails ps_all'
+
+        def ps_all(build = nil, target = nil)
           App.instance.show_all_containers
         end
 
+        protected
 
-        # desc 'hello NAME', 'This will greet you'
-        # long_desc <<-HELLO_WORLD
-        #
-        # `hello NAME` will print out a message to the person of your choosing.
-        #
-        # Brian Kernighan actually wrote the first "Hello, World!" program
-        # as part of the documentation for the BCPL programming language
-        # developed by Martin Richards. BCPL was used while C was being
-        # developed at Bell Labs a few years before the publication of
-        # Kernighan and Ritchie's C book in 1972.
-        #
-        # http://stackoverflow.com/a/12785204
-        # HELLO_WORLD
-        #
-        # option :upcase
-        #
-        # def hello(name)
-        #   greeting = "Hello, #{name}"
-        #   greeting.upcase! if options[:upcase]
-        #   puts greeting
+        # invoke with an empty set of options
+        # def invoke_new(command, options=[])
+        #   invoke command, nil, options
         # end
       end
     end

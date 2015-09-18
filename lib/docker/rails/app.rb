@@ -3,15 +3,15 @@ module Docker
     require 'singleton'
     class App
       include Singleton
-      attr_reader :config, :compose_config, :ruby_version, :build_name, :environment_name, :gems_volume_path, :gems_volume_name, :compose_filename
+      attr_reader :config, :compose_config, :ruby_version, :build, :target, :gems_volume_path, :gems_volume_name, :compose_filename
 
       class << self
-        def configured(build_name, environment_name)
+        def configured(target, options)
           app = App.instance
           if app.is_configured?
-            puts "Already configured"
+            # puts "Already configured"
           else
-            app.configure(build_name: build_name, environment_name: environment_name)
+            app.configure(Thor::CoreExt::HashWithIndifferentAccess.new(target: target).merge(options))
           end
           app
         end
@@ -23,12 +23,12 @@ module Docker
       end
 
       def configure(options)
-        ENV['BUILD_NAME'] = @build_name = options[:build_name]
-        @environment_name = options[:environment_name]
+        ENV['DOCKER_RAILS_BUILD'] = @build = options[:build]
+        @target = options[:target]
 
         # load the docker-rails.yml
         @config = Docker::Rails::Config.new
-        @config.load!(@environment_name)
+        @config.load!(@target)
 
         @is_configured = true
       end
@@ -39,7 +39,7 @@ module Docker
 
       def compose
         # Write a docker-compose.yml with interpolated variables
-        @compose_filename = compose_filename_from @build_name, @environment_name
+        @compose_filename = compose_filename_from @build, @target
 
         rm_compose
 
@@ -59,9 +59,14 @@ module Docker
         (exec before_command unless before_command.nil?) #unless skip? :before_command
       end
 
-      def exec_up
+      def exec_up(options = '')
         # Run the compose configuration
-        exec_compose 'up' #unless skip? :up
+        exec_compose 'up', false, options #unless skip? :up
+      end
+
+      def exec_ps
+        # Run the compose configuration
+        exec_compose 'ps'
       end
 
       def exec_stop
@@ -110,8 +115,8 @@ module Docker
       end
 
       # convenience to execute docker-compose with file and project params
-      def exec_compose(cmd, capture = false)
-        exec("docker-compose -f #{@compose_filename} -p #{App.instance.build_name} #{cmd}", capture)
+      def exec_compose(cmd, capture = false, options = '')
+        exec("docker-compose -f #{@compose_filename} -p #{@build} #{cmd} #{options}", capture)
       end
 
       # service_name i.e. 'db' or 'web'
@@ -157,8 +162,8 @@ module Docker
 
       def set_gems_volume_vars
         # Set as variable for interpolation
-        ENV['GEMS_VOLUME_PATH'] = @gems_volume_path = "/gems/#{@ruby_version}"
-        ENV['GEMS_VOLUME_NAME'] = @gems_volume_name = "gems-#{@ruby_version}"
+        ENV['DOCKER_RAILS_GEMS_VOLUME_PATH'] = @gems_volume_path = "/gems/#{@ruby_version}"
+        ENV['DOCKER_RAILS_GEMS_VOLUME_NAME'] = @gems_volume_name = "gems-#{@ruby_version}"
       end
 
       def discover_ruby_version
@@ -168,8 +173,8 @@ module Docker
       end
 
       # accessible so that we can delete patterns
-      def compose_filename_from(build_name, environment_name)
-        "docker-compose-build-#{build_name}-#{environment_name}.yml"
+      def compose_filename_from(build, target)
+        "docker-compose-#{target}-#{build}.yml"
       end
     end
   end

@@ -8,6 +8,8 @@ end
 require 'thor'
 require 'docker'
 
+require 'docker/rails/core_ext/hash'
+
 require 'docker/rails/config'
 require 'docker/rails/compose_config'
 require 'docker/rails/app'
