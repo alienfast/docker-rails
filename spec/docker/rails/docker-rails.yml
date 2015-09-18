@@ -8,7 +8,7 @@ elasticsearch: &elasticsearch
       - "9200"
 
 development:
-  docker-compose:
+  compose:
     <<: *elasticsearch
     web:
       links:
@@ -43,7 +43,7 @@ development:
 
 test:
   before_command: rm -Rf target
-  docker-compose:
+  compose:
     <<: *elasticsearch
     web:
       links:
@@ -71,7 +71,7 @@ test:
 
 parallel_tests:
   before_command: rm -Rf target
-  docker-compose:
+  compose:
     <<: *elasticsearch
     web:
       links:
@@ -99,7 +99,7 @@ parallel_tests:
         "
 
 staging:
-  docker-compose:
+  compose:
     web:
       environment:
         - RAILS_ENV=staging
@@ -126,7 +126,7 @@ staging:
         && foreman start
         "
 
-docker-compose:
+compose:
   web:
     build: .
     working_dir: /project/spec/dummy
@@ -143,7 +143,7 @@ docker-compose:
       # Mount the gems data volume container for cached bundler gem files
       - #{GEMS_VOLUME_NAME}
 
-    # https://docs.docker.com/v1.6/docker-compose/cli/#environment-variables
+    # https://docs.docker.com/v1.6/compose/cli/#environment-variables
     environment:
       # Tell bundler where to get the files
       - GEM_HOME=#{GEMS_VOLUME_PATH}

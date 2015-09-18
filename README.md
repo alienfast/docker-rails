@@ -90,7 +90,7 @@ elasticsearch: &elasticsearch
       - "9200"
 
 development:
-  docker-compose:
+  compose:
     <<: *elasticsearch
     web:
       links:
@@ -125,7 +125,7 @@ development:
 
 test:
   before_command: rm -Rf target
-  docker-compose:
+  compose:
     <<: *elasticsearch
     web:
       links:
@@ -153,7 +153,7 @@ test:
 
 parallel_tests:
   before_command: rm -Rf target
-  docker-compose:
+  compose:
     <<: *elasticsearch
     web:
       links:
@@ -181,7 +181,7 @@ parallel_tests:
         "
 
 staging:
-  docker-compose:
+  compose:
     web:
       environment:
         - RAILS_ENV=staging
@@ -209,7 +209,7 @@ staging:
         "
 
 # base docker-compose configuration for all environments
-docker-compose:
+compose:
   web:
     build: .
     working_dir: /project/spec/dummy

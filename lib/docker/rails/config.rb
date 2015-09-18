@@ -14,7 +14,7 @@ module Docker
 
       def load!(environment, *filenames)
         if environment.nil?
-          puts 'Environment unspecified, generating docker-compose.yml based on root docker-compose yaml key.'
+          puts 'Environment unspecified, generating docker-compose.yml based on root :compose yaml key.'
           environment = 'docker-compose'
         end
 
@@ -27,7 +27,7 @@ module Docker
       end
 
       def write_docker_compose_file(output_filename = 'docker-compose.yml')
-        write_yaml_file(output_filename, self[:'docker-compose'])
+        write_yaml_file(output_filename, self[:'compose'])
       end
 
       def to_yaml(config = @configuration)

@@ -44,11 +44,11 @@ describe Docker::Rails::Config do
     it 'should read default file' do
       assert_common_top_level_settings
 
-      web = config[:'docker-compose'][:web]
+      web = config[:'compose'][:web]
       expect(web[:links]).to match_array %w(elasticsearch db)
       expect(web[:ports]).to match_array ['3000']
 
-      elasticsearch = config[:'docker-compose'][:elasticsearch]
+      elasticsearch = config[:'compose'][:elasticsearch]
       expect(elasticsearch[:ports]).to match_array ['9200']
 
       # ensure no unnecessary environments make it into the resolved configuration
