@@ -6,31 +6,39 @@
 A simplified pattern to execute rails applications within Docker (with a CI build emphasis).
 
 ## Features
-- Provides individual functions for development/test usage, or a full workflow for CI usage (with automated container, volume, and image cleanup).
+- DRY declarative `docker-rails.yml` allowing multiple environments to be defined with an inherited docker `compose` configuration
+- Provides individual convenience functions `up | bash | stop | cleanup` to easily work with target environment (even in a concurrent situation)
+- Full workflow for CI usage with automated container, volume, and image cleanup.
 - Automated cached global gems data volume based on ruby version
-- DRY declarative `docker-rails.yml` allowing multiple environments to be defined with an inherited `docker-compose` configuration
-- Interpolates `docker-compose.yml` making CI builds much easier
+- Interpolates variables `docker-compose.yml` making CI builds much easier
 - DB check CLI function provided for docker-compose `command` to check if db is ready
 
 ## Usage
 
 ```bash
 Commands:
-  docker-rails ci <build_name> <environment_name>          # Execute the works, everything with cleanup included i.e. bundle exec docker-rails ci 222 test
-  docker-rails compose <build_name> <environment_name>     # Writes a resolved docker-compose.yml file
-  docker-rails db_check <db>                               # Runs db_check
-  docker-rails gems_volume <command>                       # Gems volume management
-  docker-rails help [COMMAND]                              # Describe available commands or one specific command
-  docker-rails rm_compose                                  # Remove generated docker_compose file
-  docker-rails rm_dangling                                 # Remove danging images
-  docker-rails rm_volumes <build_name> <environment_name>  # Stop all running containers and remove corresponding volumes for the given build_name/environment_name
-  docker-rails show_all_containers                         # Show all remaining containers regardless of state
-  docker-rails stop <build_name> <environment_name>        # Stop all running containers for the given build_name/environment_name
-  docker-rails up <build_name> <environment_name>          # Up the docker-compose configuration for the given build_name/environment_name
+  docker-rails bash <target> <service_name>  # Open a bash shell to a running container e.g. bundle exec docker-rails bash --build=222 development db
+  docker-rails ci <target>                   # Execute the works, everything with cleanup included e.g. bundle exec docker-rails ci --build=222 test
+  docker-rails cleanup <target>              # Runs container cleanup functions stop, rm_volumes, rm_compose, rm_dangling, ps_all e.g. bundle exec docker-rails cleanup --build=222 development
+  docker-rails compose <target>              # Writes a resolved docker-compose.yml file e.g. bundle exec docker-rails compose --build=222 test
+  docker-rails db_check <db>                 # Runs db_check e.g. bundle exec docker-rails db_check mysql
+  docker-rails gems_volume <command>         # Gems volume management e.g. bundle exec docker-rails gems_volume create
+  docker-rails help [COMMAND]                # Describe available commands or one specific command
+  docker-rails ps <target>                   # List containers for the target compose configuration e.g. bundle exec docker-rails ps --build=222 development
+  docker-rails ps_all                        # List all remaining containers regardless of state e.g. bundle exec docker-rails ps_all
+  docker-rails rm_compose                    # Remove generated docker_compose file e.g. bundle exec docker-rails rm_compose --build=222 development
+  docker-rails rm_dangling                   # Remove danging images e.g. bundle exec docker-rails rm_dangling
+  docker-rails rm_volumes <target>           # Stop all running containers and remove corresponding volumes for the given build/target e.g. bundle exec docker-rails rm_volumes --build=222 development
+  docker-rails stop <target>                 # Stop all running containers for the given build/target e.g. bundle exec docker-rails stop --build=222 development
+  docker-rails up <target>                   # Up the docker-compose configuration for the given build/target. Use -d for detached mode. e.g. bundle exec docker-rails up -d --build=222 test
+
+Options:
+  -b, [--build=BUILD]  # Build name e.g. 123
+                       # Default: 1
 ```
 
 ## Work in progress - contributions welcome
-Open to pull requests. It can be expanded to suit many different configurations.
+Open to pull requests. Open to refactoring. It can be expanded to suit many different configurations.
 
 TODO:
 - **Permissions** - [Shared volume for project has files written as root](https://github.com/alienfast/docker-rails/issues/5)
@@ -224,12 +232,12 @@ compose:
 
     volumes_from:
       # Mount the gems data volume container for cached bundler gem files
-      - #{GEMS_VOLUME_NAME}
+      - #{DOCKER_RAILS_GEMS_VOLUME_NAME}
 
     # https://docs.docker.com/v1.6/docker-compose/cli/#environment-variables
     environment:
       # Tell bundler where to get the files
-      - GEM_HOME=#{GEMS_VOLUME_PATH}
+      - GEM_HOME=#{DOCKER_RAILS_GEMS_VOLUME_PATH}
 
   db:
     # https://github.com/docker-library/docs/tree/master/mysql

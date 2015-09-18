@@ -114,6 +114,18 @@ module Docker
           App.instance.show_all_containers
         end
 
+        desc 'bash <target> <service_name>', 'Open a bash shell to a running container e.g. bundle exec docker-rails bash --build=222 development db'
+
+        def bash(target, service_name)
+          # init singleton with full options
+          app = App.configured(target, options)
+
+          invoke :compose, [target], []
+
+          app.exec_bash(service_name)
+        end
+
+
         protected
 
         # invoke with an empty set of options

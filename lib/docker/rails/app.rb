@@ -100,6 +100,12 @@ module Docker
         system 'docker ps -a'
       end
 
+      def exec_bash(service_name)
+        # docker exec -it 222_db_1 bash
+        container_name = get_container_name(service_name)
+        exec "docker exec -it #{container_name} bash"
+      end
+
       protected
 
       def exec(cmd, capture = false)
