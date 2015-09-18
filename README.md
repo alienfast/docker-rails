@@ -7,7 +7,7 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 
 ## Features
 - Provides individual functions for development/test usage, or a full workflow for CI usage (with automated container, volume, and image cleanup).
-- Automated cached global gems data volume (automatic) based on ruby version
+- Automated cached global gems data volume based on ruby version
 - DRY declarative `docker-rails.yml` allowing multiple environments to be defined with an inherited `docker-compose` configuration
 - Interpolates `docker-compose.yml` making CI builds much easier
 - DB check CLI function provided for docker-compose `command` to check if db is ready
