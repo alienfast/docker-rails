@@ -23,7 +23,11 @@ module Docker
       end
 
       def configure(options)
-        ENV['DOCKER_RAILS_BUILD'] = @build = options[:build]
+        # Allow CLI option `build` to fallback to an env variable DOCKER_RAILS_BUILD.  Note that CLI provides a default build value of 1, so check against the default and existence of the env var.
+        build = options[:build]
+        build = ENV['DOCKER_RAILS_BUILD'] if build.to_i == 1 && !ENV['DOCKER_RAILS_BUILD'].nil?
+
+        ENV['DOCKER_RAILS_BUILD'] = @build = build
         @target = options[:target]
 
         # load the docker-rails.yml
