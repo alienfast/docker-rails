@@ -35,10 +35,9 @@ or for local testing (uses `1` for build)
  bundle exec docker-rails ci test
  ```
 
-### Ful CLI
+### General CLI
 
-Almost all of the commands below are in support of the `ci` command, so why not give access directly to them.  
-Helpful additions include `bash_connect` to connect to a running container and `exec` the equivalent of `docker-compose run` (but thor complained and we can't use reserverd word `run`)
+Almost all of the commands below are in support of the `ci` command, so why not give access directly to them. Helpful additions include `bash_connect` to connect to a running container and `exec` the equivalent of `docker-compose run` (but thor complained and we can't use reserverd word `run`)
 
 ```bash
 Commands:
