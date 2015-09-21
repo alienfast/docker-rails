@@ -19,22 +19,28 @@ describe Docker::Rails::Config do
     expect(config.production).to be_nil
   end
 
-  it 'should read default env and file' do
-    Dir.chdir(File.dirname(__FILE__)) do
-      config.clear
-      config.load!(nil)
-    end
-
-    assert_common_top_level_settings
-
-    # ensure no unnecessary environments make it into the resolved configuration
-    expect(config.development).to be_nil
-    expect(config.production).to be_nil
+  it 'should fail if the target environment does not exist' do
+    expect {
+      Dir.chdir(File.dirname(__FILE__)) do
+        config.clear
+        config.load!(:foo)
+      end
+    }.to raise_error /Unknown target environment/
   end
+
+  it 'should fail if the target environment is nil' do
+    expect {
+      Dir.chdir(File.dirname(__FILE__)) do
+        config.clear
+        config.load!(nil)
+      end
+    }.to raise_error /Target environment unspecified/
+  end
+
 
   context ':development' do
 
-    before(:each){
+    before(:each) {
       Dir.chdir(File.dirname(__FILE__)) do
         config.clear
         config.load!(:development)

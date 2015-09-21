@@ -13,16 +13,21 @@ module Docker
       end
 
       def load!(environment, *filenames)
-        if environment.nil?
-          puts 'Environment unspecified, generating docker-compose.yml based on root :compose yaml key.'
-          environment = 'docker-compose'
-        end
 
+        # reject nil target environments
+        raise 'Target environment unspecified.' if environment.nil?
+
+        # default the filename if unspecified
         if filenames.empty?
           puts 'Using docker-rails.yml'
           filenames = ['docker-rails.yml']
         end
 
+        # reject unknown target environments
+        config = load_unpruned(environment, *filenames)
+        raise "Unknown target environment '#{environment.to_sym}'" if config[environment.to_sym].nil?
+
+        # finally, load the config as internal state
         super(environment, *filenames)
       end
 

@@ -27,6 +27,6 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'activerecord'
 
   s.add_dependency 'docker-api'
-  s.add_dependency 'dry-config', '>= 1.2.6'
+  s.add_dependency 'dry-config', '>= 1.2.7'
   s.add_dependency 'thor'
 end
