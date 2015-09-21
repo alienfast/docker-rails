@@ -89,7 +89,7 @@ module Docker
           App.configured(target, options).exec_remove_volumes
         end
 
-        desc 'rm_compose', 'Remove generated docker_compose file e.g. bundle exec docker-rails rm_compose --build=222 development'
+        desc 'rm_compose', 'Remove generated docker_compose file e.g. bundle exec docker-rails rm_compose --build=222 development', hide: true
 
         def rm_compose(build = nil, target = nil)
           App.instance.rm_compose

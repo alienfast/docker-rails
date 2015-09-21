@@ -26,7 +26,6 @@ Commands:
   docker-rails help [COMMAND]                # Describe available commands or one specific command
   docker-rails ps <target>                   # List containers for the target compose configuration e.g. bundle exec docker-rails ps --build=222 development
   docker-rails ps_all                        # List all remaining containers regardless of state e.g. bundle exec docker-rails ps_all
-  docker-rails rm_compose                    # Remove generated docker_compose file e.g. bundle exec docker-rails rm_compose --build=222 development
   docker-rails rm_dangling                   # Remove danging images e.g. bundle exec docker-rails rm_dangling
   docker-rails rm_volumes <target>           # Stop all running containers and remove corresponding volumes for the given build/target e.g. bundle exec docker-rails rm_volumes --build=222 development
   docker-rails stop <target>                 # Stop all running containers for the given build/target e.g. bundle exec docker-rails stop --build=222 development
