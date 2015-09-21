@@ -75,7 +75,7 @@ module Docker
         @compose_config.each_key do |service_name|
           stop(service_name)
         end
-        # puts "\nDone."
+        puts 'Done.'
       end
 
       def exec_remove_volumes
@@ -84,14 +84,17 @@ module Docker
         @compose_config.each_key do |service_name|
           rm_v(service_name)
         end
-        # puts "\nDone."
+        puts 'Done.'
       end
 
       def rm_dangling
         puts "\n\nCleaning up dangling images..."
         puts '-----------------------------'
-        exec 'docker images --filter dangling=true -q | xargs docker rmi'
-        # puts "\nDone."
+
+        list_images_cmd = 'docker images --filter dangling=true -q'
+        output = exec list_images_cmd, true
+        exec "#{list_images_cmd} | xargs docker rmi" if !output.nil? && output.length > 0
+        puts 'Done.'
       end
 
       def show_all_containers
