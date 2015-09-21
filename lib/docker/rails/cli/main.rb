@@ -28,6 +28,7 @@ module Docker
           invoke CLI::GemsVolume, :create, [target], options
           invoke :before
           begin
+            invoke :build # on CI - always build to ensure dockerfile hasn't been altered - small price to pay for consistent CI.
             invoke :up
           ensure
             invoke :cleanup
@@ -60,6 +61,14 @@ module Docker
 
           app.exec_up(compose_options)
         end
+
+        desc 'build <target>', 'Build for the given build/target e.g. bundle exec docker-rails build --build=222 development'
+
+        def build(target)
+          invoke :compose
+          App.configured(target, options).exec_build
+        end
+
 
         desc 'compose <target>', 'Writes a resolved docker-compose.yml file e.g. bundle exec docker-rails compose --build=222 test'
 

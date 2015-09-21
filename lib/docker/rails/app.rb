@@ -68,6 +68,11 @@ module Docker
         exec_compose 'up', false, options #unless skip? :up
       end
 
+      def exec_build
+        # Run the compose configuration
+        exec_compose 'build'
+      end
+
       def exec_ps
         # Run the compose configuration
         exec_compose 'ps'

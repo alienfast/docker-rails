@@ -15,9 +15,35 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 
 ## Usage
 
+### CI
+
+CI, the reason this is built. Do it all, do it consistently, do it concurrently, do it easily, and always cleanup after yourself.
+  
+```bash
+bundle exec docker-rails ci --build=222 test
+```
+  
+or with the environment variable option
+
+```bash
+DOCKER_RAILS_BUILD=222 bundle exec docker-rails ci test
+```
+
+or for local testing (uses `1` for build)
+ 
+```bash
+ bundle exec docker-rails ci test
+ ```
+
+### Ful CLI
+
+Almost all of the commands below are in support of the `ci` command, so why not give access directly to them.  
+Helpful additions include `bash_connect` to connect to a running container and `exec` the equivalent of `docker-compose run` (but thor complained and we can't use reserverd word `run`)
+
 ```bash
 Commands:
   docker-rails bash_connect <target> <service_name>    # Open a bash shell to a running container e.g. bundle exec docker-rails bash --build=222 development db
+  docker-rails build <target>                          # Build for the given build/target e.g. bundle exec docker-rails build --build=222 development
   docker-rails ci <target>                             # Execute the works, everything with cleanup included e.g. bundle exec docker-rails ci --build=222 test
   docker-rails cleanup <target>                        # Runs container cleanup functions stop, rm_volumes, rm_compose, rm_dangling, ps_all e.g. bundle exec docker-rails cleanup --build=222 development
   docker-rails compose <target>                        # Writes a resolved docker-compose.yml file e.g. bundle exec docker-rails compose --build=222 test
