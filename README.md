@@ -17,22 +17,23 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 
 ```bash
 Commands:
-  docker-rails bash <target> <service_name>  # Open a bash shell to a running container e.g. bundle exec docker-rails bash --build=222 development db
-  docker-rails ci <target>                   # Execute the works, everything with cleanup included e.g. bundle exec docker-rails ci --build=222 test
-  docker-rails cleanup <target>              # Runs container cleanup functions stop, rm_volumes, rm_compose, rm_dangling, ps_all e.g. bundle exec docker-rails cleanup --build=222 development
-  docker-rails compose <target>              # Writes a resolved docker-compose.yml file e.g. bundle exec docker-rails compose --build=222 test
-  docker-rails db_check <db>                 # Runs db_check e.g. bundle exec docker-rails db_check mysql
-  docker-rails gems_volume <command>         # Gems volume management e.g. bundle exec docker-rails gems_volume create
-  docker-rails help [COMMAND]                # Describe available commands or one specific command
-  docker-rails ps <target>                   # List containers for the target compose configuration e.g. bundle exec docker-rails ps --build=222 development
-  docker-rails ps_all                        # List all remaining containers regardless of state e.g. bundle exec docker-rails ps_all
-  docker-rails rm_dangling                   # Remove danging images e.g. bundle exec docker-rails rm_dangling
-  docker-rails rm_volumes <target>           # Stop all running containers and remove corresponding volumes for the given build/target e.g. bundle exec docker-rails rm_volumes --build=222 development
-  docker-rails stop <target>                 # Stop all running containers for the given build/target e.g. bundle exec docker-rails stop --build=222 development
-  docker-rails up <target>                   # Up the docker-compose configuration for the given build/target. Use -d for detached mode. e.g. bundle exec docker-rails up -d --build=222 test
+  docker-rails bash_connect <target> <service_name>    # Open a bash shell to a running container e.g. bundle exec docker-rails bash --build=222 development db
+  docker-rails ci <target>                             # Execute the works, everything with cleanup included e.g. bundle exec docker-rails ci --build=222 test
+  docker-rails cleanup <target>                        # Runs container cleanup functions stop, rm_volumes, rm_compose, rm_dangling, ps_all e.g. bundle exec docker-rails cleanup --build=222 development
+  docker-rails compose <target>                        # Writes a resolved docker-compose.yml file e.g. bundle exec docker-rails compose --build=222 test
+  docker-rails db_check <db>                           # Runs db_check e.g. bundle exec docker-rails db_check mysql
+  docker-rails exec <target> <service_name> <command>  # Run an arbitrary command on a given service container e.g. bundle exec docker-rails exec --build=222 development db bash
+  docker-rails gems_volume <command>                   # Gems volume management e.g. bundle exec docker-rails gems_volume create
+  docker-rails help [COMMAND]                          # Describe available commands or one specific command
+  docker-rails ps <target>                             # List containers for the target compose configuration e.g. bundle exec docker-rails ps --build=222 development
+  docker-rails ps_all                                  # List all remaining containers regardless of state e.g. bundle exec docker-rails ps_all
+  docker-rails rm_dangling                             # Remove danging images e.g. bundle exec docker-rails rm_dangling
+  docker-rails rm_volumes <target>                     # Stop all running containers and remove corresponding volumes for the given build/target e.g. bundle exec docker-rails rm_volumes --build=222 development
+  docker-rails stop <target>                           # Stop all running containers for the given build/target e.g. bundle exec docker-rails stop --build=222 development
+  docker-rails up <target>                             # Up the docker-compose configuration for the given build/target. Use -d for detached mode. e.g. bundle exec docker-rails up -d --build=222 test
 
 Options:
-  -b, [--build=BUILD]  # Build name e.g. 123
+  -b, [--build=BUILD]  # Build name e.g. 123.  Can also be specified as environment variable DOCKER_RAILS_BUILD
                        # Default: 1
 ```
 

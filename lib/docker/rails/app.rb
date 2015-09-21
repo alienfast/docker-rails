@@ -107,7 +107,12 @@ module Docker
         system 'docker ps -a'
       end
 
-      def exec_bash(service_name)
+      def exec_run(service_name, command)
+        # Run the compose configuration
+        exec_compose "run #{service_name} #{command}"
+      end
+
+      def exec_bash_connect(service_name)
         # docker exec -it 222_db_1 bash
         container_name = get_container_name(service_name)
         exec "docker exec -it #{container_name} bash"

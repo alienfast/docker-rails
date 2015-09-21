@@ -4,7 +4,7 @@ module Docker
       class Main < Thor
         # default_task :help
 
-        class_option :build, aliases: ['-b'], type: :string, desc: 'Build name e.g. 123', default: '1'
+        class_option :build, aliases: ['-b'], type: :string, desc: 'Build name e.g. 123.  Can also be specified as environment variable DOCKER_RAILS_BUILD', default: '1'
 
         desc 'db_check <db>', 'Runs db_check e.g. bundle exec docker-rails db_check mysql'
         subcommand 'db_check', Docker::Rails::CLI::DbCheck
@@ -114,15 +114,27 @@ module Docker
           App.instance.show_all_containers
         end
 
-        desc 'bash <target> <service_name>', 'Open a bash shell to a running container e.g. bundle exec docker-rails bash --build=222 development db'
+        desc 'bash_connect <target> <service_name>', 'Open a bash shell to a running container e.g. bundle exec docker-rails bash --build=222 development db'
 
-        def bash(target, service_name)
+        def bash_connect(target, service_name)
           # init singleton with full options
           app = App.configured(target, options)
 
           invoke :compose, [target], []
 
-          app.exec_bash(service_name)
+          app.exec_bash_connect(service_name)
+        end
+
+
+        desc 'exec <target> <service_name> <command>', 'Run an arbitrary command on a given service container e.g. bundle exec docker-rails exec --build=222 development db bash'
+
+        def exec(target, service_name, command)
+          # init singleton with full options
+          app = App.configured(target, options)
+
+          invoke :compose, [target], []
+
+          app.exec_run(service_name, command)
         end
 
 
