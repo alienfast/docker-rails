@@ -123,6 +123,18 @@ module Docker
         exec "docker exec -it #{container_name} bash"
       end
 
+      # Create global gems data volume to cache gems for this version of ruby
+      def create_gems_volume
+        begin
+          Docker::Container.get(@gems_volume_name)
+          puts "Gem data volume container #{@gems_volume_name} already exists."
+        rescue Docker::Error::NotFoundError => e
+
+          exec "docker create -v #{@gems_volume_path} --name #{@gems_volume_path} busybox"
+          puts "Gem data volume container #{@gems_volume_name} created."
+        end
+      end
+
       protected
 
       def exec(cmd, capture = false)

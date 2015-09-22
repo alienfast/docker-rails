@@ -277,7 +277,7 @@ compose:
 
 ### 3. Run it
 
-`bundle exec docker-rails ci 111 test`
+`bundle exec docker-rails ci --build=111 test`
 
 ### 4. Submit pull requests!
 
