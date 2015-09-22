@@ -130,7 +130,7 @@ module Docker
           puts "Gem data volume container #{@gems_volume_name} already exists."
         rescue Docker::Error::NotFoundError => e
 
-          exec "docker create -v #{@gems_volume_path} --name #{@gems_volume_path} busybox"
+          exec "docker create -v #{@gems_volume_path} --name #{@gems_volume_name} busybox"
           puts "Gem data volume container #{@gems_volume_name} created."
         end
       end
