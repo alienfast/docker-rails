@@ -25,7 +25,7 @@ module Docker
           App.configured(target, options)
 
           invoke :before
-          invoke :compose
+          invoke :compose, [target], []
           invoke CLI::GemsVolume, :create, [target], options
           begin
             invoke :build # on CI - always build to ensure dockerfile hasn't been altered - small price to pay for consistent CI.
