@@ -24,7 +24,7 @@ module Docker
           # init singleton with full options
           App.configured(target, options)
 
-          invoke :before
+          invoke :before, [target], []
           invoke :compose, [target], []
           invoke CLI::GemsVolume, :create, [target], options
           begin
@@ -79,8 +79,9 @@ module Docker
         desc 'before <target>', 'Invoke before_command', hide: true
 
         def before(target)
-          invoke :compose, [target]
-          App.configured(target, options).exec_before_command
+          app = App.configured(target, options)
+          invoke :compose, [target], []
+          app.exec_before_command
         end
 
 
