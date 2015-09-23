@@ -24,9 +24,9 @@ module Docker
           # init singleton with full options
           App.configured(target, options)
 
+          invoke :before
           invoke :compose
           invoke CLI::GemsVolume, :create, [target], options
-          invoke :before
           begin
             invoke :build # on CI - always build to ensure dockerfile hasn't been altered - small price to pay for consistent CI.
             invoke :up
@@ -53,6 +53,7 @@ module Docker
           app = App.configured(target, options)
           base_options = options.except(:detached)
 
+          invoke :before
           invoke CLI::GemsVolume, :create, [target], base_options
           invoke :before, [target], base_options
 
