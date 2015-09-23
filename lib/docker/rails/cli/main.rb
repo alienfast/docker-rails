@@ -53,9 +53,8 @@ module Docker
           app = App.configured(target, options)
           base_options = options.except(:detached)
 
-          invoke :before
-          invoke CLI::GemsVolume, :create, [target], base_options
           invoke :before, [target], base_options
+          invoke CLI::GemsVolume, :create, [target], base_options
 
           compose_options = ''
           compose_options = '-d' if options[:detached]
