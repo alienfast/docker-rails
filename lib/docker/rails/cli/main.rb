@@ -35,6 +35,14 @@ module Docker
           end
         end
 
+        desc 'extract <target>', 'Invoke extractions', hide: true
+
+        def extract(target)
+          app = App.configured(target, options)
+          invoke :compose, [target], []
+          app.extract
+        end
+
         desc 'cleanup <target>', 'Runs container cleanup functions stop, rm_volumes, rm_compose, rm_dangling, ps_all e.g. bundle exec docker-rails cleanup --build=222 development'
         def cleanup(target)
           invoke :stop

@@ -29,4 +29,5 @@ Gem::Specification.new do |s|
   s.add_dependency 'docker-api'
   s.add_dependency 'dry-config', '>= 1.2.7'
   s.add_dependency 'thor'
+  s.add_dependency 'minitar'
 end
