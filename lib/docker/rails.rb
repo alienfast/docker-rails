@@ -7,6 +7,7 @@ end
 
 require 'thor'
 require 'docker'
+require 'archive/tar/minitar'
 
 require 'docker/rails/core_ext/hash'
 

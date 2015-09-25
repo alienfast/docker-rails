@@ -41,38 +41,37 @@ module Docker
         @is_configured || false
       end
 
-      def extract(from = '/project/target', to = '.')
-        # File.open('output.tar') do |file|
-        #   container.copy('/etc') do |chunk|
-        #     file.write(chunk)
-        #   end
-        # end
-
-        require 'archive/tar/minitar'
-        require 'stringio'
-        require 'fileutils'
-
+      def extract
         container = get_container('web')
+        # extract_files(container, '/project/target', '.')
+        extract_files(container, '/project/vcr', '.')
+        # extract_files(container, '/project/tmp', '.')
+      end
+
+
+      def extract_files(container, from = '/project/target', to = '.')
         # or something like
         tar_stringio = StringIO.new
         container.copy(from) do |chunk|
           tar_stringio.write(chunk)
-          puts "#{chunk}"
+          # puts "#{chunk}"
         end
-        # tar_contents.rewind
-        # http://www.rubydoc.info/gems/archive-tar-minitar/0.5.2/Archive/Tar/Minitar/Reader
-        # puts tar_contents.string
-
-        # reader = Archive::Tar::Minitar::Reader.new(tar_stringio)
-        # reader.rewind
 
         tar_stringio.rewind
 
         input = Archive::Tar::Minitar::Input.new(tar_stringio)
         input.each { |entry|
-          input.extract_entry(to, entry)
-        }
 
+          # Need to check the file name length to prevent some very bad things from happening.
+          if entry.full_name.length > 255
+            puts "ERROR - file name length is > 255 characters: #{entry.full_name}"
+          elsif entry.full_name.length <= 0
+            puts "ERROR - file name length is too small: #{entry.full_name}"
+          else
+            puts "Extracting #{entry.full_name}"
+            input.extract_entry(to, entry)
+          end
+        }
       end
 
       def compose
