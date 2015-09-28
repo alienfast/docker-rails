@@ -59,7 +59,12 @@ module Docker
 
           puts "Processing extract for #{service_name}:"
           puts '---------------------------------'
-          container = get_container(service_name)
+          container = get_container(service_name) rescue nil
+          if container.nil?
+            puts 'none.'
+            next
+          end
+
           extractions.each do |extraction|
             if extraction =~ /:/
               tokens = extraction.split(':')
@@ -184,6 +189,7 @@ module Docker
       end
 
       # Create global gems data volume to cache gems for this version of ruby
+      #     https://docs.docker.com/userguide/dockervolumes/
       def create_gems_volume
         begin
           Docker::Container.get(@gems_volume_name)
