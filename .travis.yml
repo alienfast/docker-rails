@@ -11,3 +11,8 @@ matrix:
     - rvm: jruby-head
 
 script: rake
+
+notifications:
+  email:
+    on_success: change
+    on_failure: change
