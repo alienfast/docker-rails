@@ -42,19 +42,46 @@ module Docker
       end
 
       def extract
-        container = get_container('web')
-        # extract_files(container, '/project/target', '.')
-        extract_files(container, '/project/vcr', '.')
-        # extract_files(container, '/project/tmp', '.')
+
+        # For each container, process extractions
+        #  Containers are defined in compose, extractions are defined at root under container name e.g.:
+        #     web:
+        #         extract:
+        #         - '<from_container>:<to_host>'
+        #         - '/project/target:.'
+        #         - '/project/vcr'      # same as extract to '.'
+        #         - '/project/tmp'
+        #         - '/project/spec/dummy/log:spec/dummy'
+        @compose_config.each_key do |service_name|
+          service_config = @config[service_name]
+          extractions = service_config[:extract] unless service_config.nil?
+          next if extractions.nil?
+
+          puts "Processing extract for #{service_name}:"
+          puts '---------------------------------'
+          container = get_container(service_name)
+          extractions.each do |extraction|
+            if extraction =~ /:/
+              tokens = extraction.split(':')
+              from = tokens[0]
+              to = tokens[1]
+            else
+              from = extraction
+              to = '.'
+            end
+
+            puts "\nExtracting #{service_name} #{from} to #{to}"
+            extract_files(container, from, to)
+          end
+        end
       end
 
 
-      def extract_files(container, from = '/project/target', to = '.')
+      def extract_files(container, from, to)
         # or something like
         tar_stringio = StringIO.new
         container.copy(from) do |chunk|
           tar_stringio.write(chunk)
-          # puts "#{chunk}"
         end
 
         tar_stringio.rewind

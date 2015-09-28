@@ -44,8 +44,11 @@ module Docker
         end
 
         desc 'cleanup <target>', 'Runs container cleanup functions stop, rm_volumes, rm_compose, rm_dangling, ps_all e.g. bundle exec docker-rails cleanup --build=222 development'
+        option :extract, aliases: ['-e'], type: :boolean, default: true, desc: 'Extract any directories defined in configuration.'
+
         def cleanup(target)
           invoke :stop
+          invoke :extract if options[:extract]
           invoke :rm_volumes
           invoke :rm_compose
           invoke :rm_dangling
@@ -53,7 +56,6 @@ module Docker
         end
 
         desc 'up <target>', 'Up the docker-compose configuration for the given build/target. Use -d for detached mode. e.g. bundle exec docker-rails up -d --build=222 test'
-
         option :detached, aliases: ['-d'], type: :boolean, desc: 'Detached mode: Run containers in the background'
 
         def up(target)

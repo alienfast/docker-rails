@@ -7,7 +7,7 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 
 ## Features
 - DRY declarative `docker-rails.yml` allowing multiple environments to be defined with an inherited docker `compose` configuration
-- Provides individual convenience functions `up | bash | stop | cleanup` to easily work with target environment (even in a concurrent situation)
+- Provides individual convenience functions `up | bash | stop | extract | cleanup` to easily work with target environment (even in a concurrent situation)
 - Full workflow for CI usage with automated container, volume, and image cleanup.
 - Automated cached global gems data volume based on ruby version
 - Interpolates variables `docker-compose.yml` making CI builds much easier
@@ -103,6 +103,8 @@ RUN apt-get update -qq && \
     cd /var/lib/apt/lists && rm -fr *Release* *Sources* *Packages* && \
     truncate -s 0 /var/log/*log
 
+    COPY . /project # figure out/automate this as a volume instead https://github.com/alienfast/docker-rails/issues/14
+    
 # https://github.com/docker/docker/issues/4032
 ENV DEBIAN_FRONTEND newt
 ```
@@ -110,11 +112,20 @@ ENV DEBIAN_FRONTEND newt
 ### 2. Add a docker-rails.yml
 
 Environment variables will be interpolated, so feel free to use them. 
-Below shows an example with all of the environments `development | test | parallel_tests | staging` to show reuse of the primary `compose` configuration. 
+The rails engine example below shows an example with all of the environments `development | test | parallel_tests | staging` to show reuse of the primary `compose` configuration. 
 
 ```yaml
 verbose: true
+before_command: bash -c "rm -Rf target && rm -Rf spec/dummy/log"
 
+extractions: &extractions
+  web:
+    extract:
+      - '/project/target'
+      - '/project/vcr'
+      - '/project/tmp'
+      - '/project/spec/dummy/log:spec/dummy'
+      
 # local environments need elasticsearch, staging/production connects to existing running instance.
 elasticsearch: &elasticsearch
   elasticsearch:
@@ -157,7 +168,7 @@ development:
         "
 
 test:
-  before_command: rm -Rf target
+  <<: *extractions
   compose:
     <<: *elasticsearch
     web:
@@ -185,7 +196,7 @@ test:
         "
 
 parallel_tests:
-  before_command: rm -Rf target
+  <<: *extractions
   compose:
     <<: *elasticsearch
     web:
@@ -251,9 +262,6 @@ compose:
 
     links:
       - db
-
-    volumes:
-      - .:/project
 
     volumes_from:
       # Mount the gems data volume container for cached bundler gem files
