@@ -19,6 +19,10 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 
 CI, the reason this is built. Do it all, do it consistently, do it concurrently, do it easily, and always cleanup after yourself.
 
+`bundle exec ci test`
+
+#### CI workflow
+
 `ci` executes: 
 
 1. `before_command` - run anything on the host prior to building the docker image e.g. `rm -Rf target`
@@ -32,6 +36,8 @@ CI, the reason this is built. Do it all, do it consistently, do it concurrently,
     3. `rm_volumes` - `docker-compose rm -v --force` to cleanup any container volumes (excluding the gems volume)
     4. `rm_compose` - cleanup the generated compose.yml file for the `build`
     5. `rm_dangling` - cleanup any dangling images
+
+#### CI execution options
   
 ```bash
 bundle exec docker-rails ci --build=222 test
@@ -47,7 +53,7 @@ or for local testing (uses `1` for build)
  
 ```bash
  bundle exec docker-rails ci test
- ```
+```
 
 ### General CLI
 
