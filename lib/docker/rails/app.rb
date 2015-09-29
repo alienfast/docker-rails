@@ -57,7 +57,7 @@ module Docker
           extractions = service_config[:extract] unless service_config.nil?
           next if extractions.nil?
 
-          puts "Processing extract for #{service_name}:"
+          puts "\n\nProcessing extract for #{service_name}:"
           puts '---------------------------------'
           container = get_container(service_name) rescue nil
           if container.nil?
@@ -218,7 +218,7 @@ module Docker
       def get_container(service_name)
         containers = Docker::Container.all(all: true)
         containers.each do |container|
-          if is_build_container?(container) && container.compose.service.eql?(service_name)
+          if is_build_container?(container) && container.compose.service.eql?(service_name.to_s)
             return container
           end
         end
