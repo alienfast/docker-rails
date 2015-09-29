@@ -6,7 +6,7 @@ class Docker::Container
   end
 
   class Compose
-    attr_reader :number, :oneoff, :project, :service, :version
+    attr_reader :number, :oneoff, :project, :service, :version, :name
 
     def initialize(container)
       labels = container.info['Labels']
@@ -15,13 +15,11 @@ class Docker::Container
       @oneoff = !!labels['com.docker.compose.oneoff']
       @number = labels['com.docker.compose.container-number'].to_i
       @version = labels['com.docker.compose.version']
+      @name = container.info['Names'][0].gsub(/^\//, '')
     end
 
     def to_s
-      s = "#{@project}_#{@service}_"
-      # s += 'oneoff_' if @oneoff
-      s += "#{@number}"
-      s
+      @name
     end
 
     class << self
