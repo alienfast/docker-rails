@@ -19,7 +19,7 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 
 CI, the reason this is built. Do it all, do it consistently, do it concurrently, do it easily, and always cleanup after yourself.
 
-`bundle exec ci test`
+`docker-rails ci test`
 
 #### CI workflow
 
@@ -39,20 +39,30 @@ CI, the reason this is built. Do it all, do it consistently, do it concurrently,
 
 #### CI execution options
   
+**NOTE:** If using `bundle exec`, you'll need to do a `bundle` on both the host and container.  These examples avoid `bundle exec` on the host for that reason (ran inside rvm).  
+  
+In your environment, ensure that `docker-rails` is present:
+
 ```bash
-bundle exec docker-rails ci --build=222 test
+gem install --no-ri --no-rdoc docker-rails
+```
+
+Then run it:
+  
+```bash
+docker-rails ci --build=222 test
 ```
   
 or with the environment variable option
 
 ```bash
-DOCKER_RAILS_BUILD=222 bundle exec docker-rails ci test
+DOCKER_RAILS_BUILD=222 docker-rails ci test
 ```
 
 or for local testing (uses `1` for build)
  
 ```bash
- bundle exec docker-rails ci test
+ docker-rails ci test
 ```
 
 ### General CLI
