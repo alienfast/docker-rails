@@ -96,7 +96,6 @@ Options:
 Open to pull requests. Open to refactoring. It can be expanded to suit many different configurations.
 
 TODO:
-- **Permissions** - [Shared volume for project has files written as root](https://github.com/alienfast/docker-rails/issues/5)
 - **DB versatility** - expand to different db status detection as-needed e.g. postgres. CLI is now modularized to allow for this.
 
 
