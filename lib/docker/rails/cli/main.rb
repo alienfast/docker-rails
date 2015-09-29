@@ -69,14 +69,14 @@ module Docker
           compose_options = ''
           compose_options = '-d' if options[:detached]
 
-          app.exec_up(compose_options)
+          app.up(compose_options)
         end
 
         desc 'build <target>', 'Build for the given build/target e.g. bundle exec docker-rails build --build=222 development'
 
         def build(target)
           invoke :compose
-          App.configured(target, options).exec_build
+          App.configured(target, options).build
         end
 
 
@@ -91,7 +91,7 @@ module Docker
         def before(target)
           app = App.configured(target, options)
           invoke :compose, [target], []
-          app.exec_before_command
+          app.before_command
         end
 
 
@@ -99,14 +99,14 @@ module Docker
 
         def stop(target)
           invoke :compose
-          App.configured(target, options).exec_stop
+          App.configured(target, options).stop
         end
 
         desc 'rm_volumes <target>', 'Stop all running containers and remove corresponding volumes for the given build/target e.g. bundle exec docker-rails rm_volumes --build=222 development'
 
         def rm_volumes(target)
           invoke :stop
-          App.configured(target, options).exec_remove_volumes
+          App.configured(target, options).rm_volumes
         end
 
         desc 'rm_compose', 'Remove generated docker_compose file e.g. bundle exec docker-rails rm_compose --build=222 development', hide: true
@@ -125,13 +125,13 @@ module Docker
 
         def ps(target)
           invoke :compose
-          App.configured(target, options).exec_ps
+          App.configured(target, options).ps
         end
 
         desc 'ps_all', 'List all remaining containers regardless of state e.g. bundle exec docker-rails ps_all'
 
         def ps_all(build = nil, target = nil)
-          App.instance.exec_ps_all
+          App.instance.ps_all
         end
 
         desc 'bash_connect <target> <service_name>', 'Open a bash shell to a running container (with automatic cleanup) e.g. bundle exec docker-rails bash --build=222 development db'
@@ -142,7 +142,7 @@ module Docker
 
           invoke :compose, [target], []
 
-          container = app.exec_bash_connect(service_name)
+          container = app.bash_connect(service_name)
 
           # Automatically cleanup any remnants of a simple bash session.
           return if container.nil?
@@ -159,7 +159,7 @@ module Docker
 
           invoke :compose, [target], []
 
-          app.exec_run(service_name, command)
+          app.run_service_command(service_name, command)
         end
 
 

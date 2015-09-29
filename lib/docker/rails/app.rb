@@ -102,33 +102,33 @@ module Docker
         exec "rm #{compose_filename_from '*', '*'}" rescue ''
       end
 
-      def exec_before_command
+      def before_command
         before_command = @config['before_command']
         (exec before_command unless before_command.nil?) #unless skip? :before_command
       end
 
-      def exec_up(options = '')
+      def up(options = '')
         # Run the compose configuration
         exec_compose 'up', false, options #unless skip? :up
       end
 
-      def exec_build
+      def build
         # Run the compose configuration
         exec_compose 'build'
       end
 
-      def exec_ps
+      def ps
         # Run the compose configuration
         exec_compose 'ps'
       end
 
-      def exec_ps_all
+      def ps_all
         puts "\n\nAll remaining containers..."
         puts '-----------------------------'
         exec 'docker ps -a'
       end
 
-      def exec_stop
+      def stop
         puts "\n\n\n\nStopping containers..."
         puts '-----------------------------'
         containers = Docker::Container.all(all: true)
@@ -141,7 +141,7 @@ module Docker
         puts 'Done.'
       end
 
-      def exec_remove_volumes
+      def rm_volumes
         puts "\n\nRemoving container volumes..."
         puts '-----------------------------'
 
@@ -166,12 +166,12 @@ module Docker
         puts 'Done.'
       end
 
-      def exec_run(service_name, command)
+      def run_service_command(service_name, command)
         # Run the compose configuration
         exec_compose "run #{service_name} #{command}"
       end
 
-      def exec_bash_connect(service_name)
+      def bash_connect(service_name)
         # docker exec -it 2ed97d0bb938 bash
         container = get_container(service_name)
         if container.nil?
