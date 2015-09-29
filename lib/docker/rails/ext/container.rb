@@ -18,10 +18,12 @@ class Docker::Container
 
   def exit_code
     return nil if up?
+    return nil unless (status =~ /xited/)
 
     #  Up 10 seconds
     #  Exited (0) 2 seconds ago
-    /^.* \((\w+)\)/.match(status)[0]
+    status =~ /^.* \((\w+)\)/
+    $1.to_i
   end
 
   def compose

@@ -12,6 +12,7 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 - Automated cached global gems data volume based on ruby version
 - Interpolates variables `docker-compose.yml` making CI builds much easier
 - DB check CLI function provided for docker-compose `command` to check if db is ready
+- Configurable exit_code for `ci` - determine which container's exit code will be the result of the process (useful for CI tests)
 
 ## Usage
 
@@ -151,6 +152,7 @@ The rails engine example below shows an example with all of the environments `de
 
 ```yaml
 verbose: true
+exit_code: web
 before_command: bash -c "rm -Rf target && rm -Rf spec/dummy/log"
 
 extractions: &extractions

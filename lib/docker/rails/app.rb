@@ -3,7 +3,15 @@ module Docker
     require 'singleton'
     class App
       include Singleton
-      attr_reader :config, :compose_config, :ruby_version, :build, :target, :gems_volume_path, :gems_volume_name, :compose_filename
+      attr_reader :config,
+                  :compose_config,
+                  :ruby_version,
+                  :build,
+                  :target,
+                  :gems_volume_path,
+                  :gems_volume_name,
+                  :compose_filename,
+                  :exit_code
 
       class << self
         def configured(target, options)
@@ -95,6 +103,13 @@ module Docker
 
         @compose_config = Docker::Rails::ComposeConfig.new
         @compose_config.load!(nil, @compose_filename)
+
+        # check the exit_code
+        if @config['exit_code'].nil?
+          first_defined_service = @compose_config.keys[0]
+          puts "exit_code not set in configuration, using exit code from first defined service: #{first_defined_service}"
+          @config['exit_code'] = first_defined_service
+        end
       end
 
       def rm_compose
@@ -143,6 +158,16 @@ module Docker
                 break
               end
               sleep 1
+            end
+
+            service_name = container.compose.service
+            if @config['exit_code'].eql?(service_name)
+              if container.up?
+                puts "Unable to determine exit code, the #{service_name} is still up, current status: #{container.status}"
+                @exit_code = -999
+              else
+                @exit_code = container.exit_code
+              end
             end
           end
         end

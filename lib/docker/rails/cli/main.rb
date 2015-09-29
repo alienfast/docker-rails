@@ -22,7 +22,7 @@ module Docker
 
         def ci(target)
           # init singleton with full options
-          App.configured(target, options)
+          app = App.configured(target, options)
 
           invoke :before, [target], []
           invoke :compose, [target], []
@@ -33,6 +33,8 @@ module Docker
           ensure
             invoke :cleanup
           end
+
+          exit app.exit_code
         end
 
         desc 'extract <target>', 'Invoke extractions', hide: true
