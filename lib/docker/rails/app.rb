@@ -76,34 +76,13 @@ module Docker
             end
 
             puts "\nExtracting #{service_name} #{from} to #{to}"
-            extract_files(container, from, to)
+            begin
+              extract_files(container, from, to)
+            rescue => e
+              puts e.message
+            end
           end
         end
-      end
-
-
-      def extract_files(container, from, to)
-        # or something like
-        tar_stringio = StringIO.new
-        container.copy(from) do |chunk|
-          tar_stringio.write(chunk)
-        end
-
-        tar_stringio.rewind
-
-        input = Archive::Tar::Minitar::Input.new(tar_stringio)
-        input.each { |entry|
-
-          # Need to check the file name length to prevent some very bad things from happening.
-          if entry.full_name.length > 255
-            puts "ERROR - file name length is > 255 characters: #{entry.full_name}"
-          elsif entry.full_name.length <= 0
-            puts "ERROR - file name length is too small: #{entry.full_name}"
-          else
-            puts "Extracting #{entry.full_name}"
-            input.extract_entry(to, entry)
-          end
-        }
       end
 
       def compose
@@ -143,11 +122,21 @@ module Docker
         exec_compose 'ps'
       end
 
+      def exec_ps_all
+        puts "\n\nAll remaining containers..."
+        puts '-----------------------------'
+        exec 'docker ps -a'
+      end
+
       def exec_stop
         puts "\n\n\n\nStopping containers..."
         puts '-----------------------------'
-        @compose_config.each_key do |service_name|
-          stop(service_name)
+        containers = Docker::Container.all(all: true)
+        containers.each do |container|
+          if is_build_container?(container)
+            puts container.compose
+            container.stop
+          end
         end
         puts 'Done.'
       end
@@ -155,8 +144,14 @@ module Docker
       def exec_remove_volumes
         puts "\n\nRemoving container volumes..."
         puts '-----------------------------'
-        @compose_config.each_key do |service_name|
-          rm_v(service_name)
+
+        # http://docs.docker.com/v1.7/reference/api/docker_remote_api_v1.19/#remove-a-container
+        containers = Docker::Container.all(all: true)
+        containers.each do |container|
+          if is_build_container?(container)
+            puts container.compose
+            container.remove(v: true, force: true)
+          end
         end
         puts 'Done.'
       end
@@ -171,21 +166,15 @@ module Docker
         puts 'Done.'
       end
 
-      def show_all_containers
-        puts "\n\nAll remaining containers..."
-        puts '-----------------------------'
-        system 'docker ps -a'
-      end
-
       def exec_run(service_name, command)
         # Run the compose configuration
         exec_compose "run #{service_name} #{command}"
       end
 
       def exec_bash_connect(service_name)
-        # docker exec -it 222_db_1 bash
-        container_name = get_container_name(service_name)
-        exec "docker exec -it #{container_name} bash"
+        # docker exec -it 2ed97d0bb938 bash
+        container = get_container(service_name)
+        exec "docker exec -it #{container.id} bash"
       end
 
       # Create global gems data volume to cache gems for this version of ruby
@@ -220,46 +209,25 @@ module Docker
         exec("docker-compose -f #{@compose_filename} -p #{@build} #{cmd} #{options}", capture)
       end
 
-      # service_name i.e. 'db' or 'web'
-      def get_container_name(service_name)
-        output = exec_compose "ps #{service_name}", true
-        # puts "get_container(#{service_name}): \n#{output}"
-        output =~ /^(\w+)/ # grab the name, only thing that is at the start of the line
-        $1
-      end
-
       def get_container(service_name)
-        Docker::Container.get(get_container_name(service_name))
+        containers = Docker::Container.all(all: true)
+        containers.each do |container|
+          if is_build_container?(container) && container.compose.service.eql?(service_name)
+            return container
+          end
+        end
+
+        nil
       end
 
-      # def up_service(service_name, options = '')
-      #   exec_compose "up #{options} #{service_name}"
-      #   container_name = get_container_name(service_name)
-      #   puts "#{service_name}: container_name #{container_name}"
-      #
-      #   container = Docker::Container.get(container_name)
-      #   # container.streaming_logs(stdout: true) { |stream, chunk| puts "#{service_name}: #{chunk}" }
-      #   # puts container
-      #
-      #   {service_name => {'container' => container, 'container_name' => container_name}}
-      # end
+      def is_build_container?(container)
+        # labels = container.info['Labels']
+        # build = labels['com.docker.compose.project']
 
-      def rm_v(service_name)
-        exec_compose "rm -v --force #{service_name}"
+        return false if container.compose.nil?
+        return true if @build.eql? container.compose.project
+        false
       end
-
-      def stop(service_name)
-        exec_compose "stop #{service_name}"
-      end
-
-      # def skip?(command)
-      #   skips = @config[:skip]
-      #   return false if skips.nil?
-      #   skip = skips.include? command.to_s
-      #   puts "Skipping #{command}" if skip && verbose?
-      #   skip
-      # end
-
 
       def verbose?
         @verbose ||= (@config['verbose'] unless @config.nil?) || false
@@ -280,6 +248,30 @@ module Docker
       # accessible so that we can delete patterns
       def compose_filename_from(build, target)
         "docker-compose-#{target}-#{build}.yml"
+      end
+
+      def extract_files(container, from, to)
+        # or something like
+        tar_stringio = StringIO.new
+        container.copy(from) do |chunk|
+          tar_stringio.write(chunk)
+        end
+
+        tar_stringio.rewind
+
+        input = Archive::Tar::Minitar::Input.new(tar_stringio)
+        input.each { |entry|
+
+          # Need to check the file name length to prevent some very bad things from happening.
+          if entry.full_name.length > 255
+            puts "ERROR - file name length is > 255 characters: #{entry.full_name}"
+          elsif entry.full_name.length <= 0
+            puts "ERROR - file name length is too small: #{entry.full_name}"
+          else
+            puts "Extracting #{entry.full_name}"
+            input.extract_entry(to, entry)
+          end
+        }
       end
     end
   end

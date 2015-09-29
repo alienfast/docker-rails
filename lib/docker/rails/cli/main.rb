@@ -131,7 +131,7 @@ module Docker
         desc 'ps_all', 'List all remaining containers regardless of state e.g. bundle exec docker-rails ps_all'
 
         def ps_all(build = nil, target = nil)
-          App.instance.show_all_containers
+          App.instance.exec_ps_all
         end
 
         desc 'bash_connect <target> <service_name>', 'Open a bash shell to a running container e.g. bundle exec docker-rails bash --build=222 development db'

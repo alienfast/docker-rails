@@ -9,7 +9,8 @@ require 'thor'
 require 'docker'
 require 'archive/tar/minitar'
 
-require 'docker/rails/core_ext/hash'
+require 'docker/rails/ext/hash'
+require 'docker/rails/ext/container'
 
 require 'docker/rails/config'
 require 'docker/rails/compose_config'
