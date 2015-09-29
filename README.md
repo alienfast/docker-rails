@@ -18,6 +18,20 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 ### CI
 
 CI, the reason this is built. Do it all, do it consistently, do it concurrently, do it easily, and always cleanup after yourself.
+
+`ci` executes: 
+
+1. `before_command` - run anything on the host prior to building the docker image e.g. `rm -Rf target`
+2. `compose` - create the resolved `docker-compose.yml`
+3. `gems_volume` - find or create the shared global gems volume for this ruby version
+4. `build` - `docker-compose build` the configuration
+5. `up` - `docker-compose up` the configuration
+6. `cleanup`
+    1. `stop` - stop all containers for this configuration (including one-off sessions)
+    2. `extract` - extract any defined files from any container
+    3. `rm_volumes` - `docker-compose rm -v --force` to cleanup any container volumes (excluding the gems volume)
+    4. `rm_compose` - cleanup the generated compose.yml file for the `build`
+    5. `rm_dangling` - cleanup any dangling images
   
 ```bash
 bundle exec docker-rails ci --build=222 test
@@ -41,7 +55,7 @@ Almost all of the commands below are in support of the `ci` command, so why not 
 
 ```bash
 Commands:
-  docker-rails bash_connect <target> <service_name>    # Open a bash shell to a running container e.g. bundle exec docker-rails bash --build=222 development db
+  docker-rails bash_connect <target> <service_name>    # Open a bash shell to a running container (with automatic cleanup) e.g. bundle exec docker-rails bash --build=222 development db
   docker-rails build <target>                          # Build for the given build/target e.g. bundle exec docker-rails build --build=222 development
   docker-rails ci <target>                             # Execute the works, everything with cleanup included e.g. bundle exec docker-rails ci --build=222 test
   docker-rails cleanup <target>                        # Runs container cleanup functions stop, rm_volumes, rm_compose, rm_dangling, ps_all e.g. bundle exec docker-rails cleanup --build=222 development
@@ -107,6 +121,12 @@ RUN apt-get update -qq && \
     
 # https://github.com/docker/docker/issues/4032
 ENV DEBIAN_FRONTEND newt
+
+# Bypass the union file system for better performance https://docs.docker.com/userguide/dockervolumes/
+VOLUME /project
+
+# Copy the project files into the container (again, better performance).  Use `extract` in the docker-rails.yml to obtain files such as test results.
+COPY . /project
 ```
 
 ### 2. Add a docker-rails.yml

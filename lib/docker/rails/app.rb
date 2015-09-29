@@ -174,7 +174,13 @@ module Docker
       def exec_bash_connect(service_name)
         # docker exec -it 2ed97d0bb938 bash
         container = get_container(service_name)
+        if container.nil?
+          puts "#{service_name} does not appear to be running for build #{@build}"
+          return
+        end
+
         exec "docker exec -it #{container.id} bash"
+        container
       end
 
       # Create global gems data volume to cache gems for this version of ruby

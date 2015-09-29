@@ -134,7 +134,7 @@ module Docker
           App.instance.exec_ps_all
         end
 
-        desc 'bash_connect <target> <service_name>', 'Open a bash shell to a running container e.g. bundle exec docker-rails bash --build=222 development db'
+        desc 'bash_connect <target> <service_name>', 'Open a bash shell to a running container (with automatic cleanup) e.g. bundle exec docker-rails bash --build=222 development db'
 
         def bash_connect(target, service_name)
           # init singleton with full options
@@ -142,7 +142,12 @@ module Docker
 
           invoke :compose, [target], []
 
-          app.exec_bash_connect(service_name)
+          container = app.exec_bash_connect(service_name)
+
+          # Automatically cleanup any remnants of a simple bash session.
+          return if container.nil?
+          container.stop
+          container.remove(v: true, force: true)
         end
 
 
