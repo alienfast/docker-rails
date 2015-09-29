@@ -79,7 +79,6 @@ module Docker
           App.configured(target, options).build
         end
 
-
         desc 'compose <target>', 'Writes a resolved docker-compose.yml file e.g. bundle exec docker-rails compose --build=222 test'
 
         def compose(target)
@@ -93,7 +92,6 @@ module Docker
           invoke :compose, [target], []
           app.before_command
         end
-
 
         desc 'stop <target>', 'Stop all running containers for the given build/target e.g. bundle exec docker-rails stop --build=222 development'
 
@@ -150,7 +148,6 @@ module Docker
           container.remove(v: true, force: true)
         end
 
-
         desc 'exec <target> <service_name> <command>', 'Run an arbitrary command on a given service container e.g. bundle exec docker-rails exec --build=222 development db bash'
 
         def exec(target, service_name, command)
@@ -161,14 +158,6 @@ module Docker
 
           app.run_service_command(service_name, command)
         end
-
-
-        protected
-
-        # invoke with an empty set of options
-        # def invoke_new(command, options=[])
-        #   invoke command, nil, options
-        # end
       end
     end
   end

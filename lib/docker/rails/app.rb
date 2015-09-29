@@ -134,8 +134,16 @@ module Docker
         containers = Docker::Container.all(all: true)
         containers.each do |container|
           if is_build_container?(container)
-            puts container.compose
+            printf "#{container.name}.."
             container.stop
+            60.times do |i|
+              printf '.'
+              if container.down?
+                printf "done.\n"
+                break
+              end
+              sleep 1
+            end
           end
         end
         puts 'Done.'
@@ -149,7 +157,7 @@ module Docker
         containers = Docker::Container.all(all: true)
         containers.each do |container|
           if is_build_container?(container)
-            puts container.compose
+            puts container.name
             container.remove(v: true, force: true)
           end
         end

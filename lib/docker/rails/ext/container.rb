@@ -1,12 +1,36 @@
 class Docker::Container
 
+  def name
+    info['Names'][0].gsub(/^\//, '')
+  end
+
+  def status
+    info['Status']
+  end
+
+  def up?
+    status =~ /^(up|Up)/
+  end
+
+  def down?
+    !up?
+  end
+
+  def exit_code
+    return nil if up?
+
+    #  Up 10 seconds
+    #  Exited (0) 2 seconds ago
+    /^.* \((\w+)\)/.match(status)[0]
+  end
+
   def compose
     return nil unless Compose.is_compose_container?(self)
     @_compose ||= Compose.new(self)
   end
 
   class Compose
-    attr_reader :number, :oneoff, :project, :service, :version, :name
+    attr_reader :number, :oneoff, :project, :service, :version
 
     def initialize(container)
       labels = container.info['Labels']
@@ -15,11 +39,6 @@ class Docker::Container
       @oneoff = !!labels['com.docker.compose.oneoff']
       @number = labels['com.docker.compose.container-number'].to_i
       @version = labels['com.docker.compose.version']
-      @name = container.info['Names'][0].gsub(/^\//, '')
-    end
-
-    def to_s
-      @name
     end
 
     class << self
