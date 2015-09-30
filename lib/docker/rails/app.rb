@@ -247,8 +247,10 @@ module Docker
         puts '-----------------------------'
 
         list_images_cmd = 'docker images --filter dangling=true -q'
-        output = exec list_images_cmd, true
-        exec "#{list_images_cmd} | xargs docker rmi" if !output.nil? && output.length > 0
+        output = exec( list_images_cmd, true)
+
+        # if there are any dangling, let's clean them up.
+        exec("#{list_images_cmd} | xargs docker rmi", false, true) if !output.nil? && output.length > 0
         puts 'Done.'
       end
 
@@ -284,7 +286,7 @@ module Docker
 
       protected
 
-      def exec(cmd, capture = false)
+      def exec(cmd, capture = false, ignore_errors = false)
         puts "Running `#{cmd}`" if verbose?
         if capture
           output = %x[#{cmd}]
@@ -292,13 +294,13 @@ module Docker
           system cmd
         end
 
-        raise "Failed to execute: `#{cmd}`" unless $?.success?
+        (raise "Failed to execute: `#{cmd}`" unless $?.success?) unless ignore_errors
         output
       end
 
       # convenience to execute docker-compose with file and project params
       def exec_compose(cmd, capture = false, options = '')
-        exec("docker-compose -f #{@compose_filename} -p #{@build} #{cmd} #{options}", capture)
+        exec("docker-compose -f #{@compose_filename} -p #{@project_name} #{cmd} #{options}", capture)
       end
 
       def get_container(service_name)
