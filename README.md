@@ -93,13 +93,6 @@ Options:
                        # Default: 1
 ```
 
-## Work in progress - contributions welcome
-Open to pull requests. Open to refactoring. It can be expanded to suit many different configurations.
-
-TODO:
-- **DB versatility** - expand to different db status detection as-needed e.g. postgres. CLI is now modularized to allow for this.
-
-
 ## Installation
 
 Add this line to your application's Gemfile:
@@ -348,7 +341,7 @@ gem install --no-ri --no-rdoc docker-rails
 docker-rails ci --build=$bamboo_buildNumber parallel_tests
 ```
 
-#### 2. Add an incline script final task 
+#### 2. Add an inline script final task 
 
 In the _Final tasks_ section, add another inline script task just to ensure cleanup.  If all is well, this is duplicate work (that takes very little time), but we have seen cases where executing `stop` in Bamboo will kill off the process without a chance to cleanup.  This will take care of that scenario.
 
@@ -365,6 +358,12 @@ fi
 source ~/.bash_profile
 docker-rails cleanup --build=$bamboo_buildNumber parallel_tests
 ```
+
+## Work in progress - contributions welcome
+Open to pull requests. Open to refactoring. It can be expanded to suit many different configurations.
+
+TODO:
+- **DB versatility** - expand to different db status detection as-needed e.g. postgres. CLI is now modularized to allow for this.
 
 ## Contributing
 
