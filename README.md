@@ -40,7 +40,7 @@ CI, the reason this is built. Do it all, do it consistently, do it concurrently,
 
 #### CI execution options
   
-**NOTE:** If using `bundle exec`, you'll need to do a `bundle` on both the host and container.  These examples avoid `bundle exec` on the host for that reason (ran inside rvm).  
+**NOTE:** If using `bundle exec`, you'll need to do a `bundle` on both the host and container.  These examples avoid `bundle exec` on the host to avoid the time taken to bundle (it should happen inside your container). 
   
 In your environment, ensure that `docker-rails` is present:
 
