@@ -6,7 +6,8 @@ module Docker
       attr_reader :config,
                   :compose_config,
                   :ruby_version,
-                  :build,
+                  :build, # given build, usually a number
+                  :project_name, # resolved compose project name
                   :target,
                   :gems_volume_path,
                   :gems_volume_name,
@@ -31,12 +32,20 @@ module Docker
       end
 
       def configure(options)
+        @target = options[:target]
+
         # Allow CLI option `build` to fallback to an env variable DOCKER_RAILS_BUILD.  Note that CLI provides a default build value of 1, so check against the default and existence of the env var.
         build = options[:build]
         build = ENV['DOCKER_RAILS_BUILD'] if build.to_i == 1 && !ENV['DOCKER_RAILS_BUILD'].nil?
-
         ENV['DOCKER_RAILS_BUILD'] = @build = build
-        @target = options[:target]
+
+        # determine project_name
+        dir_name = Dir.pwd.split('/').last
+        @project_name = "#{dir_name}_#{target}_#{build}"
+
+        # FIXME: temporarily sanitize project_name until they loosen restrictions see https://github.com/docker/compose/issues/2119
+        @project_name = @project_name.gsub(/[^a-z0-9]/, '')
+
 
         # load the docker-rails.yml
         @config = Docker::Rails::Config.new
@@ -95,7 +104,7 @@ module Docker
 
       def compose
         # Write a docker-compose.yml with interpolated variables
-        @compose_filename = compose_filename_from @build, @target
+        @compose_filename = compose_filename_from @project_name
 
         rm_compose
 
@@ -114,7 +123,7 @@ module Docker
 
       def rm_compose
         # Delete old docker compose files
-        exec "rm #{compose_filename_from '*', '*'}" rescue ''
+        exec "rm #{compose_filename_from '*'}" rescue ''
       end
 
       def before_command
@@ -148,8 +157,10 @@ module Docker
         puts '-----------------------------'
         containers = Docker::Container.all(all: true)
         containers.each do |container|
-          if is_build_container?(container)
+          if is_project_container?(container)
             printf "#{container.name}.."
+
+            # Stop it
             container.stop
             60.times do |i|
               printf '.'
@@ -158,6 +169,48 @@ module Docker
                 break
               end
               sleep 1
+            end
+
+            # Kill it #1 - if still up, kill it softly?  # http://tldp.org/LDP/Bash-Beginners-Guide/html/sect_12_01.html
+            if container.up?
+              printf 'killing(-1)'
+              container.kill(signal: 'SIGHUP')
+              10.times do |i|
+                printf '.'
+                if container.down?
+                  printf "done.\n"
+                  break
+                end
+                sleep 1
+              end
+            end
+
+            # Kill it #2 - if still up, kill it with a vengeance?  # http://tldp.org/LDP/Bash-Beginners-Guide/html/sect_12_01.html
+            if container.up?
+              printf 'killing(-9)'
+              container.kill(signal: 'SIGKILL')
+              10.times do |i|
+                printf '.'
+                if container.down?
+                  printf "done.\n"
+                  break
+                end
+                sleep 1
+              end
+            end
+
+            # Kill it #3 - if still up, kill it with a chuck norris?  # http://tldp.org/LDP/Bash-Beginners-Guide/html/sect_12_01.html
+            if container.up?
+              printf 'killing(Chuck Norris)'
+              container.kill(signal: 'SIGSTOP')
+              10.times do |i|
+                printf '.'
+                if container.down?
+                  printf "done.\n"
+                  break
+                end
+                sleep 1
+              end
             end
 
             service_name = container.compose.service
@@ -181,7 +234,7 @@ module Docker
         # http://docs.docker.com/v1.7/reference/api/docker_remote_api_v1.19/#remove-a-container
         containers = Docker::Container.all(all: true)
         containers.each do |container|
-          if is_build_container?(container)
+          if is_project_container?(container)
             puts container.name
             container.remove(v: true, force: true)
           end
@@ -251,7 +304,7 @@ module Docker
       def get_container(service_name)
         containers = Docker::Container.all(all: true)
         containers.each do |container|
-          if is_build_container?(container) && container.compose.service.eql?(service_name.to_s)
+          if is_project_container?(container) && container.compose.service.eql?(service_name.to_s)
             return container
           end
         end
@@ -259,12 +312,12 @@ module Docker
         nil
       end
 
-      def is_build_container?(container)
+      def is_project_container?(container)
         # labels = container.info['Labels']
         # build = labels['com.docker.compose.project']
 
         return false if container.compose.nil?
-        return true if @build.eql? container.compose.project
+        return true if @project_name.eql? container.compose.project
         false
       end
 
@@ -285,8 +338,8 @@ module Docker
       end
 
       # accessible so that we can delete patterns
-      def compose_filename_from(build, target)
-        "docker-compose-#{target}-#{build}.yml"
+      def compose_filename_from(project_name)
+        "docker-compose-#{project_name}.yml"
       end
 
       def extract_files(container, from, to)

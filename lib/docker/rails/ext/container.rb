@@ -9,7 +9,10 @@ class Docker::Container
   end
 
   def up?
-    status =~ /^(up|Up)/
+    #  Up 10 seconds
+    #  Exited (0) 2 seconds ago
+    return true if status =~ /^(up|Up)/
+    false
   end
 
   def down?
