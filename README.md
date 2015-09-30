@@ -114,7 +114,7 @@ Or install it yourself as:
 
     $ gem install docker-rails
 
-## Usage
+## Setup and Configuration
 
 ### 1. Add a Dockerfile
 
@@ -148,7 +148,7 @@ COPY . /project
 ### 2. Add a docker-rails.yml
 
 Environment variables will be interpolated, so feel free to use them. 
-The rails engine example below shows an example with all of the environments `development | test | parallel_tests | staging` to show reuse of the primary `compose` configuration. 
+The _rails engine_ example below shows an example with all of the environments `development | test | parallel_tests | staging` to show reuse of the primary `compose` configuration. 
 
 ```yaml
 verbose: true
@@ -320,15 +320,47 @@ compose:
       - MYSQL_ALLOW_EMPTY_PASSWORD=true
 ```
 
-### 3. Run it
+## CI setup
 
-`bundle exec docker-rails ci --build=111 test`
+### Bamboo
 
-### 4. Submit pull requests!
+The following shows execution within Atlassian Bamboo using an script task and RVM on the host.
 
-The intent for this is to make rails with docker a snap.  The code should be modular enough that adding a check for a different database etc should be quite simple.
-We are open to expanding functionality beyond what is already provided.
+1. Add an inline script task
 
+```bash
+#!/bin/bash
+ 
+# force bash, not bin/sh
+if [ "$(ps -p "$$" -o comm=)" != "bash" ]; then
+    # Taken from http://unix-linux.questionfor.info/q_unix-linux-programming_85038.html
+    bash "$0" "$@"
+    exit "$?"
+fi
+
+source ~/.bash_profile
+rvm gemset list
+echo "Build: $bamboo_buildNumber"
+gem install --no-ri --no-rdoc docker-rails
+
+docker-rails ci --build=$bamboo_buildNumber parallel_tests
+```
+
+2. In the final tasks section, add another inline script task just to ensure cleanup
+
+```bash
+#!/bin/bash
+ 
+# force bash, not bin/sh
+if [ "$(ps -p "$$" -o comm=)" != "bash" ]; then
+    # Taken from http://unix-linux.questionfor.info/q_unix-linux-programming_85038.html
+    bash "$0" "$@"
+    exit "$?"
+fi
+
+source ~/.bash_profile
+docker-rails cleanup --build=$bamboo_buildNumber parallel_tests
+```
 
 ## Contributing
 
