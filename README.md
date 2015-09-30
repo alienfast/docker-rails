@@ -326,7 +326,9 @@ compose:
 
 The following shows execution within Atlassian Bamboo using an script task and RVM on the host.
 
-1. Add an inline script task
+#### 1. Add an inline script task
+
+This will run everything, including cleanup.
 
 ```bash
 #!/bin/bash
@@ -346,7 +348,9 @@ gem install --no-ri --no-rdoc docker-rails
 docker-rails ci --build=$bamboo_buildNumber parallel_tests
 ```
 
-2. In the final tasks section, add another inline script task just to ensure cleanup
+#### 2. Add an incline script final task 
+
+In the _Final tasks_ section, add another inline script task just to ensure cleanup.  If all is well, this is duplicate work (that takes very little time), but we have seen cases where executing `stop` in Bamboo will kill off the process without a chance to cleanup.  This will take care of that scenario.
 
 ```bash
 #!/bin/bash
