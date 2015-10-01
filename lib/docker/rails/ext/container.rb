@@ -1,11 +1,27 @@
 class Docker::Container
 
-  def name
-    info['Names'][0].gsub(/^\//, '')
+  # Update the @info hash, which is the only mutable state in this object.
+  def refresh!
+     other = Docker::Container.all({all: true}, connection).find { |c|
+      c.id.start_with?(self.id) || self.id.start_with?(c.id)
+    }
+
+    info.merge!(self.json)
+    other && info.merge!(other.info)
+    self
   end
 
   def status
-    info['Status']
+    # info is cached, return the first one otherwise retrieve a new container and get the status from it
+    refresh!
+
+    status = info['Status']
+    puts status
+    status
+  end
+
+  def name
+    info['Names'][0].gsub(/^\//, '')
   end
 
   def up?
