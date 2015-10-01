@@ -9,10 +9,10 @@ module Docker
         desc 'db_check <db>', 'Runs db_check e.g. bundle exec docker-rails db_check mysql'
         subcommand 'db_check', Docker::Rails::CLI::DbCheck
 
-        desc 'gems_volume <command>', 'Gems volume management e.g. bundle exec docker-rails gems_volume create'
+        desc 'gems_volume <command>', 'Gems volume management e.g. docker-rails gems_volume create'
         subcommand 'gems_volume', Docker::Rails::CLI::GemsVolume
 
-        desc 'ci <target>', 'Execute the works, everything with cleanup included e.g. bundle exec docker-rails ci --build=222 test'
+        desc 'ci <target>', 'Execute the works, everything with cleanup included e.g. docker-rails ci --build=222 test'
         long_desc <<-D
 
           `ci` will run the target with the given build (-b) number then cleanup everything upon completion.
@@ -45,7 +45,7 @@ module Docker
           app.extract
         end
 
-        desc 'cleanup <target>', 'Runs container cleanup functions stop, rm_volumes, rm_compose, rm_dangling, ps_all e.g. bundle exec docker-rails cleanup --build=222 development'
+        desc 'cleanup <target>', 'Runs container cleanup functions stop, rm_volumes, rm_compose, rm_dangling, ps_all e.g. docker-rails cleanup --build=222 development'
         option :extract, aliases: ['-e'], type: :boolean, default: true, desc: 'Extract any directories defined in configuration.'
 
         def cleanup(target)
@@ -57,7 +57,7 @@ module Docker
           invoke :ps_all
         end
 
-        desc 'up <target>', 'Up the docker-compose configuration for the given build/target. Use -d for detached mode. e.g. bundle exec docker-rails up -d --build=222 test'
+        desc 'up <target>', 'Up the docker-compose configuration for the given build/target. Use -d for detached mode. e.g. docker-rails up -d --build=222 test'
         option :detached, aliases: ['-d'], type: :boolean, desc: 'Detached mode: Run containers in the background'
 
         def up(target)
@@ -74,14 +74,14 @@ module Docker
           app.up(compose_options)
         end
 
-        desc 'build <target>', 'Build for the given build/target e.g. bundle exec docker-rails build --build=222 development'
+        desc 'build <target>', 'Build for the given build/target e.g. docker-rails build --build=222 development'
 
         def build(target)
           invoke :compose
           App.configured(target, options).compose_build
         end
 
-        desc 'compose <target>', 'Writes a resolved docker-compose.yml file e.g. bundle exec docker-rails compose --build=222 test'
+        desc 'compose <target>', 'Writes a resolved docker-compose.yml file e.g. docker-rails compose --build=222 test'
 
         def compose(target)
           App.configured(target, options).compose
@@ -95,46 +95,46 @@ module Docker
           app.before_command
         end
 
-        desc 'stop <target>', 'Stop all running containers for the given build/target e.g. bundle exec docker-rails stop --build=222 development'
+        desc 'stop <target>', 'Stop all running containers for the given build/target e.g. docker-rails stop --build=222 development'
 
         def stop(target)
           invoke :compose
           App.configured(target, options).stop
         end
 
-        desc 'rm_volumes <target>', 'Stop all running containers and remove corresponding volumes for the given build/target e.g. bundle exec docker-rails rm_volumes --build=222 development'
+        desc 'rm_volumes <target>', 'Stop all running containers and remove corresponding volumes for the given build/target e.g. docker-rails rm_volumes --build=222 development'
 
         def rm_volumes(target)
           invoke :stop
           App.configured(target, options).rm_volumes
         end
 
-        desc 'rm_compose', 'Remove generated docker_compose file e.g. bundle exec docker-rails rm_compose --build=222 development', hide: true
+        desc 'rm_compose', 'Remove generated docker_compose file e.g. docker-rails rm_compose --build=222 development', hide: true
 
         def rm_compose(build = nil, target = nil)
           App.instance.rm_compose
         end
 
-        desc 'rm_dangling', 'Remove danging images e.g. bundle exec docker-rails rm_dangling'
+        desc 'rm_dangling', 'Remove danging images e.g. docker-rails rm_dangling'
 
         def rm_dangling(build = nil, target = nil)
           App.instance.rm_dangling
         end
 
-        desc 'ps <target>', 'List containers for the target compose configuration e.g. bundle exec docker-rails ps --build=222 development'
+        desc 'ps <target>', 'List containers for the target compose configuration e.g. docker-rails ps --build=222 development'
 
         def ps(target)
           invoke :compose
           App.configured(target, options).ps
         end
 
-        desc 'ps_all', 'List all remaining containers regardless of state e.g. bundle exec docker-rails ps_all'
+        desc 'ps_all', 'List all remaining containers regardless of state e.g. docker-rails ps_all'
 
         def ps_all(build = nil, target = nil)
           App.instance.ps_all
         end
 
-        desc 'bash_connect <target> <service_name>', 'Open a bash shell to a running container (with automatic cleanup) e.g. bundle exec docker-rails bash --build=222 development db'
+        desc 'bash_connect <target> <service_name>', 'Open a bash shell to a running container (with automatic cleanup) e.g. docker-rails bash --build=222 development db'
 
         def bash_connect(target, service_name)
           # init singleton with full options
@@ -150,7 +150,7 @@ module Docker
           container.remove(v: true, force: true)
         end
 
-        desc 'exec <target> <service_name> <command>', 'Run an arbitrary command on a given service container e.g. bundle exec docker-rails exec --build=222 development db bash'
+        desc 'exec <target> <service_name> <command>', 'Run an arbitrary command on a given service container e.g. docker-rails exec --build=222 development db bash'
 
         def exec(target, service_name, command)
           # init singleton with full options

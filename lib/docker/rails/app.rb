@@ -259,7 +259,7 @@ module Docker
 
       def run_service_command(service_name, command)
         # Run the compose configuration
-        exec_compose "run #{service_name} #{command}"
+        exec_compose("run #{service_name} #{command}", false, '', true)
       end
 
       def bash_connect(service_name)
@@ -302,11 +302,11 @@ module Docker
       end
 
       # convenience to execute docker-compose with file and project params
-      def exec_compose(cmd, capture = false, options = '')
+      def exec_compose(cmd, capture = false, options = '', ignore_errors = false)
         # in the case of running a bash session, this file may dissappear, just make sure it is there.
         compose unless File.exists?(@compose_filename)
 
-        exec("docker-compose -f #{@compose_filename} -p #{@project_name} #{cmd} #{options}", capture)
+        exec("docker-compose -f #{@compose_filename} -p #{@project_name} #{cmd} #{options}", capture, ignore_errors)
       end
 
       def get_container(service_name)
