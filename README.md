@@ -153,8 +153,10 @@ extractions: &extractions
     extract:
       - '/project/target'
       - '/project/vcr'
-      - '/project/tmp'
       - '/project/spec/dummy/log:spec/dummy'
+      - '/project/tmp/parallel_runtime_cucumber.log:./tmp'
+      - '/project/tmp/parallel_runtime_rspec.log:./tmp'
+
       
 # local environments need elasticsearch, staging/production connects to existing running instance.
 elasticsearch: &elasticsearch

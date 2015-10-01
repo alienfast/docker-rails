@@ -69,6 +69,9 @@ module Docker
         #         - '/project/vcr'      # same as extract to '.'
         #         - '/project/tmp'
         #         - '/project/spec/dummy/log:spec/dummy'
+        #         - '/project/tmp/parallel_runtime_cucumber.log:./tmp'
+        #         - '/project/tmp/parallel_runtime_rspec.log:./tmp'
+
         @compose_config.each_key do |service_name|
           service_config = @config[service_name]
           extractions = service_config[:extract] unless service_config.nil?
