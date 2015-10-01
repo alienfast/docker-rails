@@ -1,5 +1,6 @@
 class Docker::Container
 
+  #FIXME: remove this method when pull #321 is accepted
   # Update the @info hash, which is the only mutable state in this object.
   def refresh!
      other = Docker::Container.all({all: true}, connection).find { |c|
@@ -15,9 +16,7 @@ class Docker::Container
     # info is cached, return the first one otherwise retrieve a new container and get the status from it
     refresh!
 
-    status = info['Status']
-    puts status
-    status
+    info['Status']
   end
 
   def name
