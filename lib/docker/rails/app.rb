@@ -303,6 +303,9 @@ module Docker
 
       # convenience to execute docker-compose with file and project params
       def exec_compose(cmd, capture = false, options = '')
+        # in the case of running a bash session, this file may dissappear, just make sure it is there.
+        compose unless File.exists?(@compose_filename)
+
         exec("docker-compose -f #{@compose_filename} -p #{@project_name} #{cmd} #{options}", capture)
       end
 
