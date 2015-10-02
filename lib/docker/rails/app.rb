@@ -24,7 +24,7 @@ module Docker
       end
 
       def configure(options)
-         # Allow CLI option `build` to fallback to an env variable DOCKER_RAILS_BUILD.  Note that CLI provides a default build value of 1, so check against the default and existence of the env var.
+        # Allow CLI option `build` to fallback to an env variable DOCKER_RAILS_BUILD.  Note that CLI provides a default build value of 1, so check against the default and existence of the env var.
         build = options[:build]
         build = ENV['DOCKER_RAILS_BUILD'] if build.to_i == 1 && !ENV['DOCKER_RAILS_BUILD'].nil?
         ENV['DOCKER_RAILS_BUILD'] = build
@@ -138,66 +138,13 @@ module Docker
         exec 'docker ps -a'
       end
 
-      def stop
+      def stop_all
         puts "\n\n\n\nStopping containers..."
         puts '-----------------------------'
         containers = Docker::Container.all(all: true)
         containers.each do |container|
           if is_project_container?(container)
-            printf "#{container.name}.."
-
-            # Stop it
-            container.stop
-            60.times do |i|
-              printf '.'
-              if container.down?
-                printf "done.\n"
-                break
-              end
-              sleep 1
-            end
-
-            # Kill it #1 - if still up, kill it softly?  # http://tldp.org/LDP/Bash-Beginners-Guide/html/sect_12_01.html
-            if container.up?
-              printf 'killing(-1)'
-              container.kill(signal: 'SIGHUP')
-              10.times do |i|
-                printf '.'
-                if container.down?
-                  printf "done.\n"
-                  break
-                end
-                sleep 1
-              end
-            end
-
-            # Kill it #2 - if still up, kill it with a vengeance?  # http://tldp.org/LDP/Bash-Beginners-Guide/html/sect_12_01.html
-            if container.up?
-              printf 'killing(-9)'
-              container.kill(signal: 'SIGKILL')
-              10.times do |i|
-                printf '.'
-                if container.down?
-                  printf "done.\n"
-                  break
-                end
-                sleep 1
-              end
-            end
-
-            # Kill it #3 - if still up, kill it with a chuck norris?  # http://tldp.org/LDP/Bash-Beginners-Guide/html/sect_12_01.html
-            if container.up?
-              printf 'killing(Chuck Norris)'
-              container.kill(signal: 'SIGSTOP')
-              10.times do |i|
-                printf '.'
-                if container.down?
-                  printf "done.\n"
-                  break
-                end
-                sleep 1
-              end
-            end
+            stop(container)
 
             service_name = container.compose.service
             if @config['exit_code'].eql?(service_name)
@@ -210,6 +157,7 @@ module Docker
             end
           end
         end
+        rm_ssh_agent
         puts 'Done.'
       end
 
@@ -222,7 +170,7 @@ module Docker
         containers.each do |container|
           if is_project_container?(container)
             puts container.name
-            container.remove(v: true, force: true)
+            rm_v(container)
           end
         end
         puts 'Done.'
@@ -257,9 +205,40 @@ module Docker
         container
       end
 
+      def run_ssh_agent
+        ssh_agent_name = @config.ssh_agent_name
+        begin
+          Docker::Container.get(ssh_agent_name)
+          puts "Gem data volume container #{ssh_agent_name} already exists."
+        rescue Docker::Error::NotFoundError => e
+          exec "docker run -d --name=#{ssh_agent_name} #{ssh_agent_image}"
+          puts "SSH Agent forwarding container #{ssh_agent_name} running."
+        end
+
+        ssh_keys = @config[:'ssh-agent'][:keys]
+        puts "Forwarding SSH key(s): #{ssh_keys.join(',')} into container(s): #{@config[:'ssh-agent'][:containers].join(',')}"
+        ssh_keys.each do |key_file_name|
+          local_key_file = "#{ENV['HOME']}/.ssh/#{key_file_name}"
+          raise "Local key file #{local_key_file} doesn't exist." unless File.exists? local_key_file
+          # exec "docker run --rm --volumes-from=#{ssh_agent_name} -v ~/.ssh:/ssh -it #{ssh_agent_image} ssh-add /ssh/#{key_file_name}"
+          exec "docker run --rm --volumes-from=#{ssh_agent_name} -v ~/.ssh:/ssh #{ssh_agent_image} ssh-add /ssh/#{key_file_name}"
+        end
+      end
+
+      def rm_ssh_agent
+        ssh_agent_name = @config.ssh_agent_name
+        begin
+          container = Docker::Container.get(ssh_agent_name)
+          stop(container)
+          rm_v(container)
+        rescue Docker::Error::NotFoundError => e
+          puts "SSH Agent forwarding container #{ssh_agent_name} does not exist."
+        end
+      end
+
       # Create global gems data volume to cache gems for this version of ruby
       #     https://docs.docker.com/userguide/dockervolumes/
-      def create_gems_volume
+      def create_gemset_volume
         begin
           Docker::Container.get(gemset_volume_name)
           puts "Gem data volume container #{gemset_volume_name} already exists."
@@ -267,6 +246,15 @@ module Docker
 
           exec "docker create -v #{gemset_volume_path} --name #{gemset_volume_name} busybox"
           puts "Gem data volume container #{gemset_volume_name} created."
+        end
+      end
+
+      def rm_gemset_volume
+        begin
+          container = Docker::Container.get(gemset_volume_name)
+          rm_v(container)
+        rescue Docker::Error::NotFoundError => e
+          puts "Gem data volume container #{gemset_volume_name} does not exist."
         end
       end
 
@@ -345,6 +333,67 @@ module Docker
         }
       end
 
+      def stop(container)
+        printf "#{container.name}.."
+
+        # Stop it
+        container.stop
+        60.times do |i|
+          printf '.'
+          if container.down?
+            printf "done.\n"
+            break
+          end
+          sleep 1
+        end
+
+        # Kill it #1 - if still up, kill it softly?  # http://tldp.org/LDP/Bash-Beginners-Guide/html/sect_12_01.html
+        if container.up?
+          printf 'killing(-1)'
+          container.kill(signal: 'SIGHUP')
+          10.times do |i|
+            printf '.'
+            if container.down?
+              printf "done.\n"
+              break
+            end
+            sleep 1
+          end
+        end
+
+        # Kill it #2 - if still up, kill it with a vengeance?  # http://tldp.org/LDP/Bash-Beginners-Guide/html/sect_12_01.html
+        if container.up?
+          printf 'killing(-9)'
+          container.kill(signal: 'SIGKILL')
+          10.times do |i|
+            printf '.'
+            if container.down?
+              printf "done.\n"
+              break
+            end
+            sleep 1
+          end
+        end
+
+        # Kill it #3 - if still up, kill it with a chuck norris?  # http://tldp.org/LDP/Bash-Beginners-Guide/html/sect_12_01.html
+        if container.up?
+          printf 'killing(Chuck Norris)'
+          container.kill(signal: 'SIGSTOP')
+          10.times do |i|
+            printf '.'
+            if container.down?
+              printf "done.\n"
+              break
+            end
+            sleep 1
+          end
+        end
+      end
+
+      def rm_v(container)
+        container.remove(v: true, force: true)
+      end
+
       def gemset_volume_name
         @config[:gemset][:volume][:name]
       end
@@ -356,13 +405,17 @@ module Docker
       def project_name
         @config[:project_name]
       end
-      
+
       def build
         @config[:build]
       end
 
       def target
         @config[:target]
+      end
+
+      def ssh_agent_image
+        'whilp/ssh-agent:latest'
       end
     end
   end

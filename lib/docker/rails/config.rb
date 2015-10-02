@@ -18,10 +18,11 @@ module Docker
         project_name = project_name.gsub(/[^a-z0-9]/, '')
 
         super({
-                  project_name: project_name,
                   default_configuration: {
+                      build: build,
+                      target: target,
+                      project_name: project_name,
                       verbose: false
-
                   },
                   prune: [:development, :test, :parallel_tests, :staging, :production]
               }.merge(options))
@@ -52,6 +53,8 @@ module Docker
         # ssh-agent
         ssh_agent = config[:'ssh-agent']
         if !ssh_agent.nil?
+
+          raise "Expected to find 'ssh-agent: keys' with at least one entry" if ssh_agent[:keys].nil? || ssh_agent[:keys].length < 1
           ssh_agent[:containers].each do |container|
             raise "Unknown container #{container}" if config[:compose][container.to_sym].nil?
             # environment:
@@ -64,7 +67,7 @@ module Docker
             compose[container.to_sym] ||= {}
             compose[container.to_sym].deeper_merge! ({
                                                         environment: ['SSH_AUTH_SOCK=/ssh-agent/socket'],
-                                                        volumes_from: ["#{@options[:project_name]}-ssh-agent"]
+                                                        volumes_from: [ssh_agent_name]
                                                     })
           end
         end
@@ -108,6 +111,10 @@ module Docker
 
         # finally, load the config as internal state
         super(environment, *filenames)
+      end
+
+      def ssh_agent_name
+        "#{self[:project_name]}_ssh_agent"
       end
 
       def write_docker_compose_file(output_filename = 'docker-compose.yml')

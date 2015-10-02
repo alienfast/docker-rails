@@ -18,5 +18,6 @@ require 'docker/rails/app'
 
 require 'docker/rails/cli/db_check'
 require 'docker/rails/cli/gemset_volume'
+require 'docker/rails/cli/ssh_agent'
 
 require 'docker/rails/cli/main'

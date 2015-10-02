@@ -12,6 +12,9 @@ module Docker
         desc 'gemset_volume <command>', 'Gemset volume management e.g. docker-rails gemset_volume create'
         subcommand 'gemset_volume', Docker::Rails::CLI::GemsetVolume
 
+        desc 'ssh_agent <command>', 'SSH Agent Forwarding e.g. docker-rails ssh_agent forward'
+        subcommand 'ssh_agent', Docker::Rails::CLI::SshAgent
+
         desc 'ci <target>', 'Execute the works, everything with cleanup included e.g. docker-rails ci --build=222 test'
         long_desc <<-D
 
@@ -27,6 +30,7 @@ module Docker
           invoke :before, [target], []
           invoke :compose, [target], []
           invoke CLI::GemsetVolume, :create, [target], options
+          invoke CLI::SshAgent, :forward, [target], options
           begin
             invoke :build # on CI - always build to ensure dockerfile hasn't been altered - small price to pay for consistent CI.
             invoke :up
@@ -67,6 +71,7 @@ module Docker
 
           invoke :before, [target], base_options
           invoke CLI::GemsetVolume, :create, [target], base_options
+          invoke CLI::SshAgent, :forward, [target], base_options
 
           compose_options = ''
           compose_options = '-d' if options[:detached]
@@ -99,7 +104,7 @@ module Docker
 
         def stop(target)
           invoke :compose
-          App.configured(target, options).stop
+          App.configured(target, options).stop_all
         end
 
         desc 'rm_volumes <target>', 'Stop all running containers and remove corresponding volumes for the given build/target e.g. docker-rails rm_volumes --build=222 development'
@@ -157,6 +162,8 @@ module Docker
           app = App.configured(target, options)
 
           invoke :compose, [target], []
+          invoke CLI::GemsetVolume, :create, [target], []
+          invoke CLI::SshAgent, :forward, [target], []
 
           app.run_service_command(service_name, command)
         end

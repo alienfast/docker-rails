@@ -3,7 +3,7 @@ class Docker::Container
   #FIXME: remove this method when pull #321 is accepted
   # Update the @info hash, which is the only mutable state in this object.
   def refresh!
-     other = Docker::Container.all({all: true}, connection).find { |c|
+    other = Docker::Container.all({all: true}, connection).find { |c|
       c.id.start_with?(self.id) || self.id.start_with?(c.id)
     }
 
@@ -20,7 +20,15 @@ class Docker::Container
   end
 
   def name
-    info['Names'][0].gsub(/^\//, '')
+    name = info['Names'][0] unless info['Names'].nil?
+    name = info['Name'] if name.nil? # straight docker containers appear to just use 'Name'
+
+    # puts "Name: #{info['Name']}"
+    # puts "Names: #{info['Names']}"
+    # puts "Names.nil?: #{info['Names'].nil?}"
+    # puts "Names.length: #{info['Names'].length}"
+
+    name.gsub(/^\//, '')
   end
 
   def up?

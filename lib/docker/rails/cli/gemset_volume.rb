@@ -2,16 +2,15 @@ module Docker
   module Rails
     module CLI
       class GemsetVolume < Thor
-
-        default_task :help
-
-        desc 'create', 'Create a gem volume'
+        desc 'create', 'Create a gemset volume'
         def create(target = nil)
-          App.configured(target, options).create_gems_volume
+          App.configured(target, options).create_gemset_volume
         end
 
-
-        # TODO: add destroy volume
+        desc 'rm', 'Remove a gemset volume'
+        def rm(target = nil)
+          App.configured(target, options).rm_gemset_volume
+        end
       end
     end
   end

@@ -13,6 +13,7 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 - Interpolates variables `docker-compose.yml` making CI builds much easier
 - DB check CLI function provided for docker-compose `command` to check if db is ready
 - Configurable exit_code for `ci` - determine which container's exit code will be the result of the process (useful for CI tests)
+- Declarative ssh key sharing via SSH Agent Forwarding
 
 ## Usage
 
@@ -28,10 +29,11 @@ CI, the reason this is built. Do it all, do it consistently, do it concurrently,
 
 1. `before_command` - run anything on the host prior to building the docker image e.g. `rm -Rf target`
 2. `compose` - create the resolved `docker-compose.yml`
-3. `gemset_volume` - find or create the shared global gems volume for this ruby version
-4. `build` - `docker-compose build` the configuration
-5. `up` - `docker-compose up` the configuration
-6. `cleanup`
+3. `gemset_volume create` - find or create the shared global gems volume for this ruby version
+4. `ssh_agent forward` - forward any declared keys
+5. `build` - `docker-compose build` the configuration
+6. `up` - `docker-compose up` the configuration
+7. `cleanup`
     1. `stop` - stop all containers for this configuration (including one-off sessions)
     2. `extract` - extract any defined files from any container
     3. `rm_volumes` - `docker-compose rm -v --force` to cleanup any container volumes (excluding the gems volume)
@@ -72,21 +74,22 @@ Almost all of the commands below are in support of the `ci` command, so why not 
 
 ```bash
 Commands:
-  docker-rails bash_connect <target> <service_name>    # Open a bash shell to a running container (with automatic cleanup) e.g. bundle exec docker-rails bash --build=222 development db
-  docker-rails build <target>                          # Build for the given build/target e.g. bundle exec docker-rails build --build=222 development
-  docker-rails ci <target>                             # Execute the works, everything with cleanup included e.g. bundle exec docker-rails ci --build=222 test
-  docker-rails cleanup <target>                        # Runs container cleanup functions stop, rm_volumes, rm_compose, rm_dangling, ps_all e.g. bundle exec docker-rails cleanup --build=222 development
-  docker-rails compose <target>                        # Writes a resolved docker-compose.yml file e.g. bundle exec docker-rails compose --build=222 test
+  docker-rails bash_connect <target> <service_name>    # Open a bash shell to a running container (with automatic cleanup) e.g. docker-rails bash --build=222 development db
+  docker-rails build <target>                          # Build for the given build/target e.g. docker-rails build --build=222 development
+  docker-rails ci <target>                             # Execute the works, everything with cleanup included e.g. docker-rails ci --build=222 test
+  docker-rails cleanup <target>                        # Runs container cleanup functions stop, rm_volumes, rm_compose, rm_dangling, ps_all e.g. docker-rails cleanup --build=222 development
+  docker-rails compose <target>                        # Writes a resolved docker-compose.yml file e.g. docker-rails compose --build=222 test
   docker-rails db_check <db>                           # Runs db_check e.g. bundle exec docker-rails db_check mysql
-  docker-rails exec <target> <service_name> <command>  # Run an arbitrary command on a given service container e.g. bundle exec docker-rails exec --build=222 development db bash
-  docker-rails gemset_volume <command>                   # Gems volume management e.g. bundle exec docker-rails gemset_volume create
+  docker-rails exec <target> <service_name> <command>  # Run an arbitrary command on a given service container e.g. docker-rails exec --build=222 development db bash
+  docker-rails gemset_volume <command>                 # Gemset volume management e.g. docker-rails gemset_volume create
   docker-rails help [COMMAND]                          # Describe available commands or one specific command
-  docker-rails ps <target>                             # List containers for the target compose configuration e.g. bundle exec docker-rails ps --build=222 development
-  docker-rails ps_all                                  # List all remaining containers regardless of state e.g. bundle exec docker-rails ps_all
-  docker-rails rm_dangling                             # Remove danging images e.g. bundle exec docker-rails rm_dangling
-  docker-rails rm_volumes <target>                     # Stop all running containers and remove corresponding volumes for the given build/target e.g. bundle exec docker-rails rm_volumes --build=222 development
-  docker-rails stop <target>                           # Stop all running containers for the given build/target e.g. bundle exec docker-rails stop --build=222 development
-  docker-rails up <target>                             # Up the docker-compose configuration for the given build/target. Use -d for detached mode. e.g. bundle exec docker-rails up -d --build=222 test
+  docker-rails ps <target>                             # List containers for the target compose configuration e.g. docker-rails ps --build=222 development
+  docker-rails ps_all                                  # List all remaining containers regardless of state e.g. docker-rails ps_all
+  docker-rails rm_dangling                             # Remove danging images e.g. docker-rails rm_dangling
+  docker-rails rm_volumes <target>                     # Stop all running containers and remove corresponding volumes for the given build/target e.g. docker-rails rm_volumes --build=222 development
+  docker-rails ssh_agent <command>                     # SSH Agent Forwarding e.g. docker-rails ssh_agent forward
+  docker-rails stop <target>                           # Stop all running containers for the given build/target e.g. docker-rails stop --build=222 development
+  docker-rails up <target>                             # Up the docker-compose configuration for the given build/target. Use -d for detached mode. e.g. docker-rails up -d --build=222 test
 
 Options:
   -b, [--build=BUILD]  # Build name e.g. 123.  Can also be specified as environment variable DOCKER_RAILS_BUILD
@@ -148,6 +151,7 @@ verbose: true
 exit_code: web
 before_command: bash -c "rm -Rf target && rm -Rf spec/dummy/log"
 
+# ---
 # create a global gemset to be shared amongst all ruby 2.2.2 containers.
 gemset:
   name: 2.2.2
@@ -155,6 +159,18 @@ gemset:
   containers:
     - web
 
+# ---
+# Make the host user's id_rsa key available to the web container e.g. for cloning from github
+#   If you see "Host key verification failed", make sure to turn off strict hosts
+#   with something like echo -e "Host bitbucket.org\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+ssh-agent:
+  containers:
+    - web
+  keys:
+    - id_rsa
+
+# ---
+# Declare a reusable extract set
 extractions: &extractions
   web:
     extract:
@@ -171,6 +187,11 @@ elasticsearch: &elasticsearch
     image: library/elasticsearch:1.7
     ports:
       - "9200"
+      
+ssh_test:
+  compose:
+    web:
+      command: bash -c "ssh -o 'StrictHostKeyChecking no' -T git@bitbucket.org"      
 
 development:
   compose:
