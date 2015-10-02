@@ -3,21 +3,22 @@ module Docker
     require 'dry/config'
     class Config < Dry::Config::Base
 
-      # environment:
-      #   # make ssh keys available via ssh forwarding (see volume entry)
-      #   - SSH_AUTH_SOCK=/ssh-agent/socket
-      #
-      # volumes_from:
-      #   # Use configured whilp/ssh-agent long running container for keys
-      #   - ssh-agent
-      SSH_AGENT_DEFAULT_CONFIG = {
-          environment: ['SSH_AUTH_SOCK=/ssh-agent/socket'],
-          volumes_from: ['ssh-agent']
-      }
-
-
       def initialize(options = {})
+        raise 'build unspecified' if options[:build].nil?
+        build = options[:build]
+
+        raise 'target unspecified' if options[:target].nil?
+        target = options[:target]
+
+        # determine project_name
+        dir_name = Dir.pwd.split('/').last
+        project_name = "#{dir_name}_#{target}_#{build}"
+
+        # FIXME: temporarily sanitize project_name until they loosen restrictions see https://github.com/docker/compose/issues/2119
+        project_name = project_name.gsub(/[^a-z0-9]/, '')
+
         super({
+                  project_name: project_name,
                   default_configuration: {
                       verbose: false
 
@@ -53,8 +54,18 @@ module Docker
         if !ssh_agent.nil?
           ssh_agent[:containers].each do |container|
             raise "Unknown container #{container}" if config[:compose][container.to_sym].nil?
+            # environment:
+            #   # make ssh keys available via ssh forwarding (see volume entry)
+            #   - SSH_AUTH_SOCK=/ssh-agent/socket
+            #
+            # volumes_from:
+            #   # Use configured whilp/ssh-agent long running container for keys
+            #   - <project_name>-ssh-agent
             compose[container.to_sym] ||= {}
-            compose[container.to_sym].deeper_merge! ({}.merge SSH_AGENT_DEFAULT_CONFIG)
+            compose[container.to_sym].deeper_merge! ({
+                                                        environment: ['SSH_AUTH_SOCK=/ssh-agent/socket'],
+                                                        volumes_from: ["#{@options[:project_name]}-ssh-agent"]
+                                                    })
           end
         end
 
@@ -66,8 +77,18 @@ module Docker
         gemset_name = gemset[:name]
         raise "Expected to find 'gemset: name' in #{filenames}" if gemset_name.nil?
 
-        ENV['DOCKER_RAILS_GEMSET_VOLUME_PATH'] = gemset_volume_path = "/gemset/#{gemset_name}"
-        ENV['DOCKER_RAILS_GEMSET_VOLUME_NAME'] = gemset_volume_name = "gemset-#{gemset_name}"
+        # add the generated gemset name/path to the generated defaults
+        gemset_volume_path = "/gemset/#{gemset_name}"
+        gemset_volume_name = "gemset-#{gemset_name}"
+
+        generated_defaults.deeper_merge!(gemset: gemset)
+        generated_defaults[:gemset].deeper_merge!({
+                                                      volume:{
+                                                          name: gemset_volume_name,
+                                                          path: gemset_volume_path
+                                                      }
+
+                                                  })
 
         raise "Expected to find 'gemset: containers' with at least one entry" if gemset[:containers].nil? || gemset[:containers].length < 1
         gemset[:containers].each do |container|

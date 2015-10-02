@@ -3,7 +3,11 @@ require 'spec_helper'
 describe Docker::Rails::Config do
 
   subject(:options) { {} }
-  subject(:config) { Docker::Rails::Config.new }
+  let(:target) { :foo }
+  let(:build) { 111 }
+  let(:dir_name) { 'rails' }
+  let(:project_name) { "#{dir_name}#{target}#{build}" }
+  subject(:config) { Docker::Rails::Config.new(build: build, target: target) }
 
   it 'should not raise error when key is not found' do
     config.clear
@@ -39,11 +43,11 @@ describe Docker::Rails::Config do
 
 
   context ':development' do
-    let(:target_env){ :development}
+    let(:target) { :development }
     before(:each) {
       Dir.chdir(File.dirname(__FILE__)) do
         config.clear
-        config.load!(target_env)
+        config.load!(target)
       end
     }
 
@@ -79,7 +83,7 @@ describe Docker::Rails::Config do
 
       it 'web should have ssh-agent' do
         expect(compose_config[:web][:environment]).to include('SSH_AUTH_SOCK=/ssh-agent/socket')
-        expect(compose_config[:web][:volumes_from]).to include('ssh-agent')
+        expect(compose_config[:web][:volumes_from]).to include("#{project_name}-ssh-agent")
       end
       it 'web should have gemset' do
         expect(compose_config[:web][:environment]).to include('GEM_HOME=/gemset/2.2.2')

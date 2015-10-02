@@ -5,12 +5,6 @@ module Docker
       include Singleton
       attr_reader :config,
                   :compose_config,
-                  :ruby_version,
-                  :build, # given build, usually a number
-                  :project_name, # resolved compose project name
-                  :target,
-                  :gemset_volume_path,
-                  :gemset_volume_name,
                   :compose_filename,
                   :exit_code
 
@@ -30,35 +24,22 @@ module Docker
       end
 
       def configure(options)
-        @target = options[:target]
-
-        # Allow CLI option `build` to fallback to an env variable DOCKER_RAILS_BUILD.  Note that CLI provides a default build value of 1, so check against the default and existence of the env var.
+         # Allow CLI option `build` to fallback to an env variable DOCKER_RAILS_BUILD.  Note that CLI provides a default build value of 1, so check against the default and existence of the env var.
         build = options[:build]
         build = ENV['DOCKER_RAILS_BUILD'] if build.to_i == 1 && !ENV['DOCKER_RAILS_BUILD'].nil?
-        ENV['DOCKER_RAILS_BUILD'] = @build = build
+        ENV['DOCKER_RAILS_BUILD'] = build
 
-        # determine project_name
-        dir_name = Dir.pwd.split('/').last
-        @project_name = "#{dir_name}_#{target}_#{build}"
-
-        # FIXME: temporarily sanitize project_name until they loosen restrictions see https://github.com/docker/compose/issues/2119
-        @project_name = @project_name.gsub(/[^a-z0-9]/, '')
-
+        target = options[:target]
 
         # load the docker-rails.yml
-        @config = Docker::Rails::Config.new
-        @config.load!(@target)
-
-        # these are generated/resolved in the config#load, grab them for convenience
-        @gemset_volume_path = ENV['DOCKER_RAILS_GEMSET_VOLUME_PATH']
-        @gemset_volume_name = ENV['DOCKER_RAILS_GEMSET_VOLUME_NAME']
-
+        @config = Docker::Rails::Config.new({build: build, target: target})
+        @config.load!(target)
         @is_configured = true
       end
 
       def compose
         # Write a docker-compose.yml with interpolated variables
-        @compose_filename = compose_filename_from @project_name
+        @compose_filename = compose_filename_from project_name
 
         rm_compose
 
@@ -268,7 +249,7 @@ module Docker
         # docker exec -it 2ed97d0bb938 bash
         container = get_container(service_name)
         if container.nil?
-          puts "#{service_name} does not appear to be running for build #{@build}"
+          puts "#{service_name} does not appear to be running for build #{build}"
           return
         end
 
@@ -280,12 +261,12 @@ module Docker
       #     https://docs.docker.com/userguide/dockervolumes/
       def create_gems_volume
         begin
-          Docker::Container.get(@gemset_volume_name)
-          puts "Gem data volume container #{@gemset_volume_name} already exists."
+          Docker::Container.get(gemset_volume_name)
+          puts "Gem data volume container #{gemset_volume_name} already exists."
         rescue Docker::Error::NotFoundError => e
 
-          exec "docker create -v #{@gemset_volume_path} --name #{@gemset_volume_name} busybox"
-          puts "Gem data volume container #{@gemset_volume_name} created."
+          exec "docker create -v #{gemset_volume_path} --name #{gemset_volume_name} busybox"
+          puts "Gem data volume container #{gemset_volume_name} created."
         end
       end
 
@@ -308,7 +289,7 @@ module Docker
         # in the case of running a bash session, this file may dissappear, just make sure it is there.
         compose unless File.exists?(@compose_filename)
 
-        exec("docker-compose -f #{@compose_filename} -p #{@project_name} #{cmd} #{options}", capture, ignore_errors)
+        exec("docker-compose -f #{@compose_filename} -p #{project_name} #{cmd} #{options}", capture, ignore_errors)
       end
 
       def get_container(service_name)
@@ -327,7 +308,7 @@ module Docker
         # build = labels['com.docker.compose.project']
 
         return false if container.compose.nil?
-        return true if @project_name.eql? container.compose.project
+        return true if project_name.eql? container.compose.project
         false
       end
 
@@ -362,6 +343,26 @@ module Docker
             input.extract_entry(to, entry)
           end
         }
+      end
+
+      def gemset_volume_name
+        @config[:gemset][:volume][:name]
+      end
+
+      def gemset_volume_path
+        @config[:gemset][:volume][:path]
+      end
+
+      def project_name
+        @config[:project_name]
+      end
+      
+      def build
+        @config[:build]
+      end
+
+      def target
+        @config[:target]
       end
     end
   end
