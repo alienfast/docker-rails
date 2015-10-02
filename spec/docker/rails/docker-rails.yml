@@ -1,4 +1,53 @@
 verbose: true
+before_command: bash -c "rm -Rf target && rm -Rf log"
+exit_code: web
+
+# create a global gemset to be shared amongst all ruby 2.2.2 containers.
+gemset:
+  name: 2.2.2
+  # setup GEM_HOME environment variable and `volumes_from` to mount the global gemset container
+  containers:
+    - web
+
+# Generated:
+#compose:
+#  web:
+#    environment:
+#      # Tell bundler where to get the files
+#      - GEM_HOME=/gemset/2.2.2
+#
+#    volumes_from:
+#      # Mount the gems data volume container for cached bundler gem files
+#      - gemset-2.2.2
+
+
+# Make the host user's id_rsa key available to the web container e.g. for cloning from github
+ssh-agent:
+  containers:
+    - web
+  keys:
+    - id_rsa
+
+# Generated:
+#compose:
+#  web:
+#    environment:
+#      # make ssh keys available via ssh forwarding (see volume entry)
+#      - SSH_AUTH_SOCK=/ssh-agent/socket
+#
+#    volumes_from:
+#      # Use configured whilp/ssh-agent long running container for keys
+#      - ssh-agent
+
+
+extractions: &extractions
+  web:
+    extract:
+      - '/project/target'
+      - '/project/vcr'
+      - '/project/tmp/parallel_runtime_cucumber.log:./tmp'
+      - '/project/tmp/parallel_runtime_rspec.log:./tmp'
+      - '/project/log'
 
 # local environments need elasticsearch, staging/production connects to existing running instance.
 elasticsearch: &elasticsearch
@@ -6,6 +55,16 @@ elasticsearch: &elasticsearch
     image: library/elasticsearch:1.7
     ports:
       - "9200"
+
+foo:
+  compose:
+    web:
+      command: bash -c "sleep 10 && echo 'foo' && exit 187"
+
+bundle_only:
+  compose:
+    web:
+      command: bash -c "bundle install --jobs 4 --retry 3"
 
 development:
   compose:
@@ -24,25 +83,25 @@ development:
         && echo 'Generating Spring binstubs'
         && bundle exec spring binstub --all
 
-        && echo 'Clearing logs and tmp dirs'
-        && bundle exec rake log:clear tmp:clear
+        && echo 'Clearing logs'
+        && bundle exec rake log:clear
 
         && echo 'Check and wait for database connection'
         && bundle exec docker-rails db_check mysql
 
-        && echo 'Setting up new db if one doesn't exist'
-        && bundle exec rake db:version || { bundle exec rake db:setup; }
+        && echo 'DB rebuild'
+        && bundle exec rake db:rebuild_dev
 
         && echo "Starting app server"
         && bundle exec rails s -p 3000
-
-        && echo 'Setup and start foreman'
-        && gem install foreman
-        && foreman start
         "
+
+#        && echo 'Setup and start foreman'
+#        && gem install foreman
+#        && foreman start
 
 test:
-  before_command: rm -Rf target
+  <<: *extractions
   compose:
     <<: *elasticsearch
     web:
@@ -55,22 +114,28 @@ test:
         echo 'Bundling gems'
         && bundle install --jobs 4 --retry 3
 
-        && echo 'Clearing logs and tmp dirs'
-        && bundle exec rake log:clear tmp:clear
-
         && echo 'Check and wait for database connection'
         && bundle exec docker-rails db_check mysql
 
-        && echo 'Setting up new db if one doesn't exist'
-        && bundle exec rake db:version || { bundle exec rake db:setup; }
+        && echo 'DB rebuild'
+        && bundle exec rake db:rebuild_test
 
         && echo 'Tests'
         && cd ../..
-        && xvfb-run -a bundle exec rake spec cucumber
+        && xvfb-run -a bundle exec rake \
+            spec SPEC=spec/app/models/batch/csv_spec.rb \
+            cucumber FEATURE=features/activation/4_admin_import_members.feature
         "
 
+#        && xvfb-run -a bundle exec rake spec
+#        && xvfb-run -a bundle exec rake spec SPEC=spec/app/models/plan_spec.rb
+#        && xvfb-run -a bundle exec rake spec SPEC=spec/app/models/plan_spec.rb cucumber FEATURE=features/public_pages.feature
+
+# cucumber
+# rake FEATURE=features/adding_products.feature cucumber
+
 parallel_tests:
-  before_command: rm -Rf target
+  <<: *extractions
   compose:
     <<: *elasticsearch
     web:
@@ -82,20 +147,17 @@ parallel_tests:
         bash -c "
 
         echo 'Bundling gems'
-        && bundle install --jobs 4 --retry 3
-
-        && echo 'Clearing logs and tmp dirs'
-        && bundle exec rake log:clear tmp:clear
+        && time bundle install --jobs 4 --retry 3
 
         && echo 'Check and wait for database connection'
-        && bundle exec docker-rails db_check mysql
+        && time bundle exec docker-rails db_check mysql
 
-        && echo 'Setting up new db if one doesn't exist'
-        && bundle exec rake parallel:drop parallel:create parallel:migrate parallel:seed
+        && echo 'DB rebuild'
+        && time bundle exec rake db:rebuild_test[true]
 
-        && echo 'Tests'
         && cd ../..
-        && xvfb-run -a bundle exec rake parallel:spec parallel:features
+        && echo 'Tests'
+        && time xvfb-run -a bundle exec rake parallel:spec parallel:features
         "
 
 staging:
@@ -109,13 +171,13 @@ staging:
         echo 'Bundling gems'
         && bundle install --jobs 4 --retry 3
 
-        && echo 'Clearing logs and tmp dirs'
-        && bundle exec rake log:clear tmp:clear
+        && echo 'Clearing logs'
+        && bundle exec rake log:clear
 
         && echo 'Check and wait for database connection'
         && bundle exec docker-rails db_check mysql
 
-        && echo 'Setting up new db if one doesn't exist'
+        && echo 'DB rebuild'
         && bundle exec rake db:migrate
 
         && echo "Starting app server"
@@ -125,34 +187,26 @@ staging:
         && gem install foreman
         && foreman start
         "
-
 compose:
+
   web:
     build: .
-    working_dir: /project/spec/dummy
+    working_dir: /project
     ports:
       - "3000"
 
     links:
       - db
 
-    volumes:
-      - .:/project
-
-    volumes_from:
-      # Mount the gems data volume container for cached bundler gem files
-      - #{DOCKER_RAILS_GEMS_VOLUME_NAME}
-
-    # https://docs.docker.com/v1.6/compose/cli/#environment-variables
-    environment:
-      # Tell bundler where to get the files
-      - GEM_HOME=#{DOCKER_RAILS_GEMS_VOLUME_PATH}
-
   db:
     # https://github.com/docker-library/docs/tree/master/mysql
-    image: library/mysql:5.7.6
+    image: library/mysql:5.7
     ports:
       - "3306"
+
+    volumes:
+      - ./db/mysql:/etc/mysql/conf.d
+#      - ./target/mysql/data:/var/lib/mysql
 
     # https://github.com/docker-library/docs/tree/master/mysql#environment-variables
     environment:

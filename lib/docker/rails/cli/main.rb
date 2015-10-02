@@ -9,8 +9,8 @@ module Docker
         desc 'db_check <db>', 'Runs db_check e.g. bundle exec docker-rails db_check mysql'
         subcommand 'db_check', Docker::Rails::CLI::DbCheck
 
-        desc 'gems_volume <command>', 'Gems volume management e.g. docker-rails gems_volume create'
-        subcommand 'gems_volume', Docker::Rails::CLI::GemsVolume
+        desc 'gemset_volume <command>', 'Gemset volume management e.g. docker-rails gemset_volume create'
+        subcommand 'gemset_volume', Docker::Rails::CLI::GemsetVolume
 
         desc 'ci <target>', 'Execute the works, everything with cleanup included e.g. docker-rails ci --build=222 test'
         long_desc <<-D
@@ -26,7 +26,7 @@ module Docker
 
           invoke :before, [target], []
           invoke :compose, [target], []
-          invoke CLI::GemsVolume, :create, [target], options
+          invoke CLI::GemsetVolume, :create, [target], options
           begin
             invoke :build # on CI - always build to ensure dockerfile hasn't been altered - small price to pay for consistent CI.
             invoke :up
@@ -66,7 +66,7 @@ module Docker
           base_options = options.except(:detached)
 
           invoke :before, [target], base_options
-          invoke CLI::GemsVolume, :create, [target], base_options
+          invoke CLI::GemsetVolume, :create, [target], base_options
 
           compose_options = ''
           compose_options = '-d' if options[:detached]

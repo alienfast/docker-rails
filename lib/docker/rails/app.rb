@@ -9,8 +9,8 @@ module Docker
                   :build, # given build, usually a number
                   :project_name, # resolved compose project name
                   :target,
-                  :gems_volume_path,
-                  :gems_volume_name,
+                  :gemset_volume_path,
+                  :gemset_volume_name,
                   :compose_filename,
                   :exit_code
 
@@ -27,8 +27,6 @@ module Docker
       end
 
       def initialize
-        discover_ruby_version
-        set_gems_volume_vars
       end
 
       def configure(options)
@@ -51,7 +49,30 @@ module Docker
         @config = Docker::Rails::Config.new
         @config.load!(@target)
 
+        # these are generated/resolved in the config#load, grab them for convenience
+        @gemset_volume_path = ENV['DOCKER_RAILS_GEMSET_VOLUME_PATH']
+        @gemset_volume_name = ENV['DOCKER_RAILS_GEMSET_VOLUME_NAME']
+
         @is_configured = true
+      end
+
+      def compose
+        # Write a docker-compose.yml with interpolated variables
+        @compose_filename = compose_filename_from @project_name
+
+        rm_compose
+
+        @config.write_docker_compose_file(@compose_filename)
+
+        @compose_config = Docker::Rails::ComposeConfig.new
+        @compose_config.load!(nil, @compose_filename)
+
+        # check the exit_code
+        if @config['exit_code'].nil?
+          first_defined_service = @compose_config.keys[0]
+          puts "exit_code not set in configuration, using exit code from first defined service: #{first_defined_service}"
+          @config['exit_code'] = first_defined_service
+        end
       end
 
       def is_configured?
@@ -102,25 +123,6 @@ module Docker
               puts e.message
             end
           end
-        end
-      end
-
-      def compose
-        # Write a docker-compose.yml with interpolated variables
-        @compose_filename = compose_filename_from @project_name
-
-        rm_compose
-
-        @config.write_docker_compose_file(@compose_filename)
-
-        @compose_config = Docker::Rails::ComposeConfig.new
-        @compose_config.load!(nil, @compose_filename)
-
-        # check the exit_code
-        if @config['exit_code'].nil?
-          first_defined_service = @compose_config.keys[0]
-          puts "exit_code not set in configuration, using exit code from first defined service: #{first_defined_service}"
-          @config['exit_code'] = first_defined_service
         end
       end
 
@@ -250,7 +252,7 @@ module Docker
         puts '-----------------------------'
 
         list_images_cmd = 'docker images --filter dangling=true -q'
-        output = exec( list_images_cmd, true)
+        output = exec(list_images_cmd, true)
 
         # if there are any dangling, let's clean them up.
         exec("#{list_images_cmd} | xargs docker rmi", false, true) if !output.nil? && output.length > 0
@@ -278,12 +280,12 @@ module Docker
       #     https://docs.docker.com/userguide/dockervolumes/
       def create_gems_volume
         begin
-          Docker::Container.get(@gems_volume_name)
-          puts "Gem data volume container #{@gems_volume_name} already exists."
+          Docker::Container.get(@gemset_volume_name)
+          puts "Gem data volume container #{@gemset_volume_name} already exists."
         rescue Docker::Error::NotFoundError => e
 
-          exec "docker create -v #{@gems_volume_path} --name #{@gems_volume_name} busybox"
-          puts "Gem data volume container #{@gems_volume_name} created."
+          exec "docker create -v #{@gemset_volume_path} --name #{@gemset_volume_name} busybox"
+          puts "Gem data volume container #{@gemset_volume_name} created."
         end
       end
 
@@ -331,18 +333,6 @@ module Docker
 
       def verbose?
         @verbose ||= (@config['verbose'] unless @config.nil?) || false
-      end
-
-      def set_gems_volume_vars
-        # Set as variable for interpolation
-        ENV['DOCKER_RAILS_GEMS_VOLUME_PATH'] = @gems_volume_path = "/gems/#{@ruby_version}"
-        ENV['DOCKER_RAILS_GEMS_VOLUME_NAME'] = @gems_volume_name = "gems-#{@ruby_version}"
-      end
-
-      def discover_ruby_version
-        # Discover ruby version from the Dockerfile image
-        IO.read('Dockerfile') =~ /^FROM \w+\/ruby:(\d+.\d+(?:.\d+))/
-        @ruby_version = $1
       end
 
       # accessible so that we can delete patterns

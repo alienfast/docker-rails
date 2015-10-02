@@ -1,7 +1,7 @@
 module Docker
   module Rails
     module CLI
-      class GemsVolume < Thor
+      class GemsetVolume < Thor
 
         default_task :help
 

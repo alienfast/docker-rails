@@ -9,7 +9,7 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 - DRY declarative `docker-rails.yml` allowing multiple environments to be defined with an inherited docker `compose` configuration
 - Provides individual convenience functions `up | bash | stop | extract | cleanup` to easily work with target environment (even in a concurrent situation)
 - Full workflow for CI usage with automated container, volume, and image cleanup.
-- Automated cached global gems data volume based on ruby version
+- Automated cached global gemset data volume (sets up GEM_HOME and `volumes_from` in all targeted containers)
 - Interpolates variables `docker-compose.yml` making CI builds much easier
 - DB check CLI function provided for docker-compose `command` to check if db is ready
 - Configurable exit_code for `ci` - determine which container's exit code will be the result of the process (useful for CI tests)
@@ -28,7 +28,7 @@ CI, the reason this is built. Do it all, do it consistently, do it concurrently,
 
 1. `before_command` - run anything on the host prior to building the docker image e.g. `rm -Rf target`
 2. `compose` - create the resolved `docker-compose.yml`
-3. `gems_volume` - find or create the shared global gems volume for this ruby version
+3. `gemset_volume` - find or create the shared global gems volume for this ruby version
 4. `build` - `docker-compose build` the configuration
 5. `up` - `docker-compose up` the configuration
 6. `cleanup`
@@ -79,7 +79,7 @@ Commands:
   docker-rails compose <target>                        # Writes a resolved docker-compose.yml file e.g. bundle exec docker-rails compose --build=222 test
   docker-rails db_check <db>                           # Runs db_check e.g. bundle exec docker-rails db_check mysql
   docker-rails exec <target> <service_name> <command>  # Run an arbitrary command on a given service container e.g. bundle exec docker-rails exec --build=222 development db bash
-  docker-rails gems_volume <command>                   # Gems volume management e.g. bundle exec docker-rails gems_volume create
+  docker-rails gemset_volume <command>                   # Gems volume management e.g. bundle exec docker-rails gemset_volume create
   docker-rails help [COMMAND]                          # Describe available commands or one specific command
   docker-rails ps <target>                             # List containers for the target compose configuration e.g. bundle exec docker-rails ps --build=222 development
   docker-rails ps_all                                  # List all remaining containers regardless of state e.g. bundle exec docker-rails ps_all
@@ -147,6 +147,13 @@ The _rails engine_ example below shows an example with all of the environments `
 verbose: true
 exit_code: web
 before_command: bash -c "rm -Rf target && rm -Rf spec/dummy/log"
+
+# create a global gemset to be shared amongst all ruby 2.2.2 containers.
+gemset:
+  name: 2.2.2
+  # setup GEM_HOME environment variable and `volumes_from` to mount the global gemset container
+  containers:
+    - web
 
 extractions: &extractions
   web:
@@ -294,15 +301,6 @@ compose:
 
     links:
       - db
-
-    volumes_from:
-      # Mount the gems data volume container for cached bundler gem files
-      - #{DOCKER_RAILS_GEMS_VOLUME_NAME}
-
-    # https://docs.docker.com/v1.6/docker-compose/cli/#environment-variables
-    environment:
-      # Tell bundler where to get the files
-      - GEM_HOME=#{DOCKER_RAILS_GEMS_VOLUME_PATH}
 
   db:
     # https://github.com/docker-library/docs/tree/master/mysql

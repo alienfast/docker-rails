@@ -17,6 +17,6 @@ require 'docker/rails/compose_config'
 require 'docker/rails/app'
 
 require 'docker/rails/cli/db_check'
-require 'docker/rails/cli/gems_volume'
+require 'docker/rails/cli/gemset_volume'
 
 require 'docker/rails/cli/main'

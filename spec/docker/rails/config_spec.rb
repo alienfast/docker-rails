@@ -23,7 +23,7 @@ describe Docker::Rails::Config do
     expect {
       Dir.chdir(File.dirname(__FILE__)) do
         config.clear
-        config.load!(:foo)
+        config.load!(:foobar)
       end
     }.to raise_error /Unknown target environment/
   end
@@ -39,11 +39,11 @@ describe Docker::Rails::Config do
 
 
   context ':development' do
-
+    let(:target_env){ :development}
     before(:each) {
       Dir.chdir(File.dirname(__FILE__)) do
         config.clear
-        config.load!(:development)
+        config.load!(target_env)
       end
     }
 
@@ -62,15 +62,29 @@ describe Docker::Rails::Config do
       expect(config.production).to be_nil
     end
 
-    it 'should write a docker-compose file' do
-      file = tmp_file
-      config.write_docker_compose_file(file)
-    end
-
     it 'should manipulate command to yaml single line' do
       yaml = config.to_yaml
       expect(yaml).to include 'command: >'
       expect(yaml).not_to include 'command: |'
+    end
+
+    context 'compose' do
+      let(:compose_config) {
+        file = tmp_file('compose')
+        config.write_docker_compose_file(file)
+        compose_config =Docker::Rails::ComposeConfig.new
+        compose_config.load!(nil, file)
+        compose_config
+      }
+
+      it 'web should have ssh-agent' do
+        expect(compose_config[:web][:environment]).to include('SSH_AUTH_SOCK=/ssh-agent/socket')
+        expect(compose_config[:web][:volumes_from]).to include('ssh-agent')
+      end
+      it 'web should have gemset' do
+        expect(compose_config[:web][:environment]).to include('GEM_HOME=/gemset/2.2.2')
+        expect(compose_config[:web][:volumes_from]).to include('gemset-2.2.2')
+      end
     end
   end
 
@@ -90,7 +104,7 @@ describe Docker::Rails::Config do
   end
 
   def tmp_file(name = 'foo')
-    file = File.expand_path("../../../../tmp/#{name}-docker-rails.yml", __FILE__)
+    file = File.expand_path("../../../../tmp/#{name}-docker-rails-config_spec.yml", __FILE__)
     FileUtils.mkdir_p File.dirname file
     file
   end
