@@ -353,45 +353,24 @@ module Docker
           sleep 1
         end
 
-        # Kill it #1 - if still up, kill it softly?  # http://tldp.org/LDP/Bash-Beginners-Guide/html/sect_12_01.html
-        if container.up?
-          printf 'killing(-1)'
-          container.kill(signal: 'SIGHUP')
-          10.times do |i|
-            printf '.'
-            if container.down?
-              printf "done.\n"
-              break
-            end
-            sleep 1
-          end
-        end
+        # kill it if necessary
+        kill(container)
+      end
 
-        # Kill it #2 - if still up, kill it with a vengeance?  # http://tldp.org/LDP/Bash-Beginners-Guide/html/sect_12_01.html
-        if container.up?
-          printf 'killing(-9)'
-          container.kill(signal: 'SIGKILL')
-          10.times do |i|
-            printf '.'
-            if container.down?
-              printf "done.\n"
-              break
+      # kill container, progressively more forceful from -1, -9, then full Chuck Norris.
+      def kill(container)
+        %w(SIGHUP SIGKILL SIGSTOP).each do |signal|
+          if container.up?
+            printf "killing(#{signal})"
+            container.kill(signal: signal)
+            10.times do |i|
+              printf '.'
+              if container.down?
+                printf "done.\n"
+                break
+              end
+              sleep 1
             end
-            sleep 1
-          end
-        end
-
-        # Kill it #3 - if still up, kill it with a chuck norris?  # http://tldp.org/LDP/Bash-Beginners-Guide/html/sect_12_01.html
-        if container.up?
-          printf 'killing(Chuck Norris)'
-          container.kill(signal: 'SIGSTOP')
-          10.times do |i|
-            printf '.'
-            if container.down?
-              printf "done.\n"
-              break
-            end
-            sleep 1
           end
         end
       end

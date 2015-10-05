@@ -30,7 +30,7 @@ CI, the reason this is built. Do it all, do it consistently, do it concurrently,
 1. `before_command` - run anything on the host prior to building the docker image e.g. `rm -Rf target`
 2. `compose` - create the resolved `docker-compose.yml`
 3. `gemset_volume create` - find or create the shared global gems volume for this ruby version
-4. `ssh_agent forward` - forward any declared keys
+4. `ssh_agent forward` - forward any declared keys and copy in `known_hosts`
 5. `build` - `docker-compose build` the configuration
 6. `up` - `docker-compose up` the configuration
 7. `cleanup`
@@ -144,7 +144,7 @@ COPY . /project
 ### 2. Add a docker-rails.yml
 
 Environment variables will be interpolated, so feel free to use them. 
-The _rails engine_ example below shows an example with all of the environments `development | test | parallel_tests | staging` to show reuse of the primary `compose` configuration. 
+The _rails engine_ example below shows an example with all of the environments `ssh_test | development | test | parallel_tests | staging` to show reuse of the primary `compose` configuration. 
 
 ```yaml
 verbose: true
@@ -181,13 +181,38 @@ extractions: &extractions
       - '/project/tmp/parallel_runtime_rspec.log:./tmp'
 
       
-# local environments need elasticsearch, staging/production connects to existing running instance.
+# ---
+# Declare a reusable elasticsearch container, staging/production connects to existing running instance.
 elasticsearch: &elasticsearch
   elasticsearch:
     image: library/elasticsearch:1.7
     ports:
       - "9200"
       
+# ---
+# Base docker-compose configuration for all environments.  Anything under the `compose` element must be standard docker-compose syntax.
+compose:
+  web:
+    build: .
+    working_dir: /project/spec/dummy
+    ports:
+      - "3000"
+
+    links:
+      - db
+
+  db:
+    # https://github.com/docker-library/docs/tree/master/mysql
+    image: library/mysql:5.7.6
+    ports:
+      - "3306"
+
+    # https://github.com/docker-library/docs/tree/master/mysql#environment-variables
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=true      
+
+# ---
+# Overrides based on the named targets ssh_test | development | test | parallel_tests | staging       
 ssh_test:
   compose:
     web:
@@ -311,27 +336,6 @@ staging:
         && gem install foreman
         && foreman start
         "
-
-# base docker-compose configuration for all environments
-compose:
-  web:
-    build: .
-    working_dir: /project/spec/dummy
-    ports:
-      - "3000"
-
-    links:
-      - db
-
-  db:
-    # https://github.com/docker-library/docs/tree/master/mysql
-    image: library/mysql:5.7.6
-    ports:
-      - "3306"
-
-    # https://github.com/docker-library/docs/tree/master/mysql#environment-variables
-    environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=true
 ```
 
 ## CI setup
