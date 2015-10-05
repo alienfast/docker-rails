@@ -206,6 +206,8 @@ module Docker
       end
 
       def run_ssh_agent
+        return if @config[:'ssh-agent'].nil?
+
         ssh_agent_name = @config.ssh_agent_name
         begin
           Docker::Container.get(ssh_agent_name)
