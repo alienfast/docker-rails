@@ -215,14 +215,18 @@ module Docker
           puts "SSH Agent forwarding container #{ssh_agent_name} running."
         end
 
+        ssh_base_cmd = "docker run --rm --volumes-from=#{ssh_agent_name} -v ~/.ssh:/ssh #{ssh_agent_image}"
+
         ssh_keys = @config[:'ssh-agent'][:keys]
         puts "Forwarding SSH key(s): #{ssh_keys.join(',')} into container(s): #{@config[:'ssh-agent'][:containers].join(',')}"
         ssh_keys.each do |key_file_name|
           local_key_file = "#{ENV['HOME']}/.ssh/#{key_file_name}"
           raise "Local key file #{local_key_file} doesn't exist." unless File.exists? local_key_file
-          # exec "docker run --rm --volumes-from=#{ssh_agent_name} -v ~/.ssh:/ssh -it #{ssh_agent_image} ssh-add /ssh/#{key_file_name}"
-          exec "docker run --rm --volumes-from=#{ssh_agent_name} -v ~/.ssh:/ssh #{ssh_agent_image} ssh-add /ssh/#{key_file_name}"
+          exec "#{ssh_base_cmd} ssh-add /ssh/#{key_file_name}"
         end
+
+        # add known hosts
+        exec "#{ssh_base_cmd} cp /ssh/known_hosts /root/.ssh/known_hosts"
       end
 
       def rm_ssh_agent

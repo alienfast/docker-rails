@@ -66,7 +66,7 @@ module Docker
             #   - <project_name>-ssh-agent
             compose[container.to_sym] ||= {}
             compose[container.to_sym].deeper_merge! ({
-                                                        environment: ['SSH_AUTH_SOCK=/ssh-agent/socket'],
+                                                        environment: ['SSH_AUTH_SOCK=/root/.ssh/socket'],
                                                         volumes_from: [ssh_agent_name]
                                                     })
           end
