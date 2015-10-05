@@ -161,8 +161,8 @@ gemset:
 
 # ---
 # Make the host user's id_rsa key available to the web container e.g. for cloning from github
-#   If you see "Host key verification failed", make sure to turn off strict hosts
-#   with something like echo -e "Host bitbucket.org\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+#   If you see "Host key verification failed", make sure the same command runs on the host first 
+#   which will add to the known_hosts file. The known_hosts is copied from the host to the ssh-agent automatically.
 ssh-agent:
   containers:
     - web
@@ -191,7 +191,7 @@ elasticsearch: &elasticsearch
 ssh_test:
   compose:
     web:
-      command: bash -c "ssh -o 'StrictHostKeyChecking no' -T git@bitbucket.org"      
+      command: bash -c "ssh -T git@bitbucket.org"      
 
 development:
   compose:
