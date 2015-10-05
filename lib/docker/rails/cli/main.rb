@@ -46,7 +46,7 @@ module Docker
         def extract(target)
           app = App.configured(target, options)
           invoke :compose, [target], []
-          app.extract
+          app.extract_all
         end
 
         desc 'cleanup <target>', 'Runs container cleanup functions stop, rm_volumes, rm_compose, rm_dangling, ps_all e.g. docker-rails cleanup --build=222 development'

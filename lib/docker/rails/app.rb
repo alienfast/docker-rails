@@ -60,7 +60,7 @@ module Docker
         @is_configured || false
       end
 
-      def extract
+      def extract_all
 
         # For each container, process extractions
         #  Containers are defined in compose, extractions are defined at root under container name e.g.:
@@ -87,22 +87,26 @@ module Docker
             next
           end
 
-          extractions.each do |extraction|
-            if extraction =~ /:/
-              tokens = extraction.split(':')
-              from = tokens[0]
-              to = tokens[1]
-            else
-              from = extraction
-              to = '.'
-            end
+          extract(container, service_name, extractions)
+        end
+      end
 
-            puts "\nExtracting #{service_name} #{from} to #{to}"
-            begin
-              extract_files(container, from, to)
-            rescue => e
-              puts e.message
-            end
+      def extract(container, service_name, extractions)
+        extractions.each do |extraction|
+          if extraction =~ /:/
+            tokens = extraction.split(':')
+            from = tokens[0]
+            to = tokens[1]
+          else
+            from = extraction
+            to = '.'
+          end
+
+          puts "\nExtracting #{service_name} #{from} to #{to}"
+          begin
+            extract_files(container, from, to)
+          rescue => e
+            puts e.message
           end
         end
       end
@@ -207,28 +211,9 @@ module Docker
 
       def run_ssh_agent
         return if @config[:'ssh-agent'].nil?
-
-        ssh_agent_name = @config.ssh_agent_name
-        begin
-          Docker::Container.get(ssh_agent_name)
-          puts "Gem data volume container #{ssh_agent_name} already exists."
-        rescue Docker::Error::NotFoundError => e
-          exec "docker run -d --name=#{ssh_agent_name} #{ssh_agent_image}"
-          puts "SSH Agent forwarding container #{ssh_agent_name} running."
-        end
-
-        ssh_base_cmd = "docker run --rm --volumes-from=#{ssh_agent_name} -v ~/.ssh:/ssh #{ssh_agent_image}"
-
-        ssh_keys = @config[:'ssh-agent'][:keys]
-        puts "Forwarding SSH key(s): #{ssh_keys.join(',')} into container(s): #{@config[:'ssh-agent'][:containers].join(',')}"
-        ssh_keys.each do |key_file_name|
-          local_key_file = "#{ENV['HOME']}/.ssh/#{key_file_name}"
-          raise "Local key file #{local_key_file} doesn't exist." unless File.exists? local_key_file
-          exec "#{ssh_base_cmd} ssh-add /ssh/#{key_file_name}"
-        end
-
-        # add known hosts
-        exec "#{ssh_base_cmd} cp /ssh/known_hosts /root/.ssh/known_hosts"
+        run_ssh_agent_daemon
+        ssh_add_keys
+        ssh_add_known_hosts
       end
 
       def rm_ssh_agent
@@ -372,6 +357,36 @@ module Docker
               sleep 1
             end
           end
+        end
+      end
+
+      def ssh_add_known_hosts
+        exec "#{ssh_base_cmd} cp /ssh/known_hosts /root/.ssh/known_hosts"
+      end
+
+      def ssh_base_cmd
+        ssh_agent_name = @config.ssh_agent_name
+        "docker run --rm --volumes-from=#{ssh_agent_name} -v ~/.ssh:/ssh #{ssh_agent_image}"
+      end
+
+      def ssh_add_keys
+        ssh_keys = @config[:'ssh-agent'][:keys]
+        puts "Forwarding SSH key(s): #{ssh_keys.join(',')} into container(s): #{@config[:'ssh-agent'][:containers].join(',')}"
+        ssh_keys.each do |key_file_name|
+          local_key_file = "#{ENV['HOME']}/.ssh/#{key_file_name}"
+          raise "Local key file #{local_key_file} doesn't exist." unless File.exists? local_key_file
+          exec "#{ssh_base_cmd} ssh-add /ssh/#{key_file_name}"
+        end
+      end
+
+      def run_ssh_agent_daemon
+        ssh_agent_name = @config.ssh_agent_name
+        begin
+          Docker::Container.get(ssh_agent_name)
+          puts "Gem data volume container #{ssh_agent_name} already exists."
+        rescue Docker::Error::NotFoundError => e
+          exec "docker run -d --name=#{ssh_agent_name} #{ssh_agent_image}"
+          puts "SSH Agent forwarding container #{ssh_agent_name} running."
         end
       end
 
