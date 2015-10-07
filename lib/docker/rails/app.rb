@@ -360,13 +360,18 @@ module Docker
         end
       end
 
-      def ssh_add_known_hosts
-        exec "#{ssh_base_cmd} cp /ssh/known_hosts /root/.ssh/known_hosts"
+      def ssh_agent_image
+        # 'whilp/ssh-agent:latest'
+        'rosskevin/ssh-agent:latest'
       end
 
       def ssh_base_cmd
         ssh_agent_name = @config.ssh_agent_name
         "docker run --rm --volumes-from=#{ssh_agent_name} -v ~/.ssh:/ssh #{ssh_agent_image}"
+      end
+
+      def ssh_add_known_hosts
+        exec "#{ssh_base_cmd} cp /ssh/known_hosts /root/.ssh/known_hosts"
       end
 
       def ssh_add_keys
@@ -412,10 +417,6 @@ module Docker
 
       def target
         @config[:target]
-      end
-
-      def ssh_agent_image
-        'whilp/ssh-agent:latest'
       end
     end
   end
