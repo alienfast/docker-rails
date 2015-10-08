@@ -361,8 +361,8 @@ module Docker
       end
 
       def ssh_agent_image
-        # 'whilp/ssh-agent:latest'
-        'rosskevin/ssh-agent:latest'
+        'whilp/ssh-agent:latest'
+        # 'rosskevin/ssh-agent:latest'
       end
 
       def ssh_base_cmd
