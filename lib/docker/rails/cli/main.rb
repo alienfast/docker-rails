@@ -73,8 +73,11 @@ module Docker
           invoke CLI::GemsetVolume, :create, [target], base_options
           invoke CLI::SshAgent, :forward, [target], base_options
 
-          compose_options = ''
-          compose_options = '-d' if options[:detached]
+          if options[:detached]
+            compose_options = '-d'
+          else
+            compose_options = '--abort-on-container-exit'
+          end
 
           app.up(compose_options)
         end
