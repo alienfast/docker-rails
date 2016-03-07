@@ -109,7 +109,10 @@ module Docker
           raise "Unknown container #{container}" if unpruned_config[:compose][container.to_sym].nil?
           compose[container.to_sym] ||= {}
           compose[container.to_sym].deeper_merge! ({
-                                                      environment: ["GEM_HOME=#{gemset_volume_path}"],
+                                                      environment: [
+                                                        "GEM_HOME=#{gemset_volume_path}",
+                                                        "BUNDLE_PATH=#{gemset_volume_path}",
+                                                      ],
                                                       volumes_from: [gemset_volume_name]
                                                   })
         end
