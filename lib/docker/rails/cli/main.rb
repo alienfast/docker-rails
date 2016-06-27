@@ -50,7 +50,7 @@ module Docker
           invoke :extract if options[:extract]
           invoke :rm_volumes
           invoke :rm_compose
-          invoke :rm_dangling
+          # invoke :rm_dangling # causes a brand new dockerfile build - don't do that. See https://github.com/alienfast/docker-rails/issues/26
           invoke :ps_all
         end
 
