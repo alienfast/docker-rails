@@ -81,9 +81,9 @@ describe Docker::Rails::Config do
         compose_config
       }
 
-      it 'web should have gemset' do
-        expect(compose_config[:web][:environment]).to include('GEM_HOME=/gemset/2.2.2')
-        expect(compose_config[:web][:volumes_from]).to include('gemset-2.2.2')
+      it 'web should have env and wd' do
+        expect(compose_config[:web][:environment]).to include('RAILS_ENV=development')
+        expect(compose_config[:web][:working_dir]).to include('/app')
       end
     end
   end

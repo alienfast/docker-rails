@@ -60,10 +60,6 @@ module Docker
         generated_defaults = {compose: {}}
         compose = generated_defaults[:compose]
 
-        # ----
-        # gemset volume
-        generate_gemset(compose, unpruned_config, generated_defaults, filenames)
-
         # now add the generated to the seeded default configuration
         @default_configuration.merge!(generated_defaults)
 
@@ -72,42 +68,6 @@ module Docker
 
         # finally, load the config as internal state
         super(environment, *filenames)
-      end
-
-      protected
-
-      def generate_gemset(compose, unpruned_config, generated_defaults, filenames)
-        gemset = unpruned_config[:gemset]
-        raise "Expected to find 'gemset:' in #{filenames}" if gemset.nil?
-
-        gemset_name = gemset[:name]
-        raise "Expected to find 'gemset: name' in #{filenames}" if gemset_name.nil?
-
-        # add the generated gemset name/path to the generated defaults
-        gemset_volume_path = "/gemset/#{gemset_name}"
-        gemset_volume_name = "gemset-#{gemset_name}"
-
-        generated_defaults.deeper_merge!(gemset: gemset)
-        generated_defaults[:gemset].deeper_merge!({
-                                                      volume: {
-                                                          name: gemset_volume_name,
-                                                          path: gemset_volume_path
-                                                      }
-
-                                                  })
-
-        raise "Expected to find 'gemset: containers' with at least one entry" if gemset[:containers].nil? || gemset[:containers].length < 1
-        gemset[:containers].each do |container|
-          raise "Unknown container #{container}" if unpruned_config[:compose][container.to_sym].nil?
-          compose[container.to_sym] ||= {}
-          compose[container.to_sym].deeper_merge! ({
-                                                      environment: [
-                                                        "GEM_HOME=#{gemset_volume_path}",
-                                                        "BUNDLE_PATH=#{gemset_volume_path}",
-                                                      ],
-                                                      volumes_from: [gemset_volume_name]
-                                                  })
-        end
       end
     end
   end

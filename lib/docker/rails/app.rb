@@ -208,28 +208,6 @@ module Docker
         container
       end
 
-      # Create global gems data volume to cache gems for this version of ruby
-      #     https://docs.docker.com/userguide/dockervolumes/
-      def create_gemset_volume
-        begin
-          Docker::Container.get(gemset_volume_name)
-          puts "Gem data volume container #{gemset_volume_name} already exists."
-        rescue Docker::Error::NotFoundError => e
-
-          exec "docker create -v #{gemset_volume_path} --name #{gemset_volume_name} busybox"
-          puts "Gem data volume container #{gemset_volume_name} created."
-        end
-      end
-
-      def rm_gemset_volume
-        begin
-          container = Docker::Container.get(gemset_volume_name)
-          rm_v(container)
-        rescue Docker::Error::NotFoundError => e
-          puts "Gem data volume container #{gemset_volume_name} does not exist."
-        end
-      end
-
       protected
 
       def exec(cmd, capture = false, ignore_errors = false)
@@ -343,14 +321,6 @@ module Docker
 
       def rm_v(container)
         container.remove(v: true, force: true)
-      end
-
-      def gemset_volume_name
-        @config[:gemset][:volume][:name]
-      end
-
-      def gemset_volume_path
-        @config[:gemset][:volume][:path]
       end
 
       def project_name

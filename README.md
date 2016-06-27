@@ -9,7 +9,6 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 - DRY declarative `docker-rails.yml` allowing multiple environments to be defined with an inherited docker `compose` configuration
 - Provides individual convenience functions `up | bash | stop | extract | cleanup` to easily work with target environment (even in a concurrent situation)
 - Full workflow for CI usage with automated container, volume, and image cleanup.
-- Automated cached global gemset data volume (sets up GEM_HOME and `volumes_from` in all targeted containers)
 - Interpolates variables `docker-compose.yml` making CI builds much easier
 - DB check CLI function provided for docker-compose `command` to check if db is ready
 - Configurable exit_code for `ci` - determine which container's exit code will be the result of the process (useful for CI tests)
@@ -28,7 +27,6 @@ CI, the reason this is built. Do it all, do it consistently, do it concurrently,
 
 1. `before_command` - run anything on the host prior to building the docker image e.g. `rm -Rf target`
 1. `compose` - create the resolved `docker-compose.yml`
-1. `gemset_volume create` - find or create the shared global gems volume for this ruby version
 1. `build` - `docker-compose build` the configuration
 1. `up` - `docker-compose up` the configuration
 1. `cleanup`
@@ -79,7 +77,6 @@ Commands:
   docker-rails compose <target>                        # Writes a resolved docker-compose.yml file e.g. docker-rails compose --build=222 test
   docker-rails db_check <db>                           # Runs db_check e.g. bundle exec docker-rails db_check mysql
   docker-rails exec <target> <service_name> <command>  # Run an arbitrary command on a given service container e.g. docker-rails exec --build=222 development db bash
-  docker-rails gemset_volume <command>                 # Gemset volume management e.g. docker-rails gemset_volume create
   docker-rails help [COMMAND]                          # Describe available commands or one specific command
   docker-rails ps <target>                             # List containers for the target compose configuration e.g. docker-rails ps --build=222 development
   docker-rails ps_all                                  # List all remaining containers regardless of state e.g. docker-rails ps_all
@@ -112,30 +109,7 @@ Or install it yourself as:
 ### 1. Add a Dockerfile
 
 ```bash
-FROM atlashealth/ruby:2.2.2
-
-ENV DEBIAN_FRONTEND noninteractive
-
-# For building, nokogiri support, capybara-webkit, mysql client
-# Clean up APT when done.
-RUN apt-get update -qq && \
-    apt-get install -qy build-essential libxml2-dev libxslt1-dev g++ qt5-default libqt5webkit5-dev xvfb libmysqlclient-dev && \
-
-    # cleanup
-    apt-get clean && \
-    cd /var/lib/apt/lists && rm -fr *Release* *Sources* *Packages* && \
-    truncate -s 0 /var/log/*log
-
-    COPY . /project # figure out/automate this as a volume instead https://github.com/alienfast/docker-rails/issues/14
-    
-# https://github.com/docker/docker/issues/4032
-ENV DEBIAN_FRONTEND newt
-
-# Bypass the union file system for better performance https://docs.docker.com/userguide/dockervolumes/
-VOLUME /project
-
-# Copy the project files into the container (again, better performance).  Use `extract` in the docker-rails.yml to obtain files such as test results.
-COPY . /project
+FIXME
 ```
 
 ### 2. Add a docker-rails.yml
@@ -149,23 +123,15 @@ exit_code: web
 before_command: bash -c "rm -Rf target && rm -Rf spec/dummy/log"
 
 # ---
-# create a global gemset to be shared amongst all ruby 2.2.2 containers.
-gemset:
-  name: 2.2.2
-  # setup GEM_HOME environment variable and `volumes_from` to mount the global gemset container
-  containers:
-    - web
-
-# ---
 # Declare a reusable extract set
 extractions: &extractions
   web:
     extract:
-      - '/project/target'
-      - '/project/vcr'
-      - '/project/spec/dummy/log:spec/dummy'
-      - '/project/tmp/parallel_runtime_cucumber.log:./tmp'
-      - '/project/tmp/parallel_runtime_rspec.log:./tmp'
+      - '/app/target'
+      - '/app/vcr'
+      - '/app/spec/dummy/log:spec/dummy'
+      - '/app/tmp/parallel_runtime_cucumber.log:./tmp'
+      - '/app/tmp/parallel_runtime_rspec.log:./tmp'
 
       
 # ---
@@ -181,7 +147,7 @@ elasticsearch: &elasticsearch
 compose:
   web:
     build: .
-    working_dir: /project/spec/dummy
+    working_dir: /app/spec/dummy
     ports:
       - "3000"
     links:

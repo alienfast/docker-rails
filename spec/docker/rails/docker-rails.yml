@@ -2,53 +2,15 @@ verbose: true
 before_command: bash -c "rm -Rf target && rm -Rf log"
 exit_code: web
 
-# create a global gemset to be shared amongst all ruby 2.2.2 containers.
-gemset:
-  name: 2.2.2
-  # setup GEM_HOME environment variable and `volumes_from` to mount the global gemset container
-  containers:
-    - web
-
-# Generated:
-#compose:
-#  web:
-#    environment:
-#      # Tell bundler where to get the files
-#      - GEM_HOME=/gemset/2.2.2
-#
-#    volumes_from:
-#      # Mount the gems data volume container for cached bundler gem files
-#      - gemset-2.2.2
-
-
-# Make the host user's id_rsa key available to the web container e.g. for cloning from github
-ssh-agent:
-  containers:
-    - web
-  keys:
-    - id_rsa
-
-# Generated:
-#compose:
-#  web:
-#    environment:
-#      # make ssh keys available via ssh forwarding (see volume entry)
-#      - SSH_AUTH_SOCK=/ssh-agent/socket
-#
-#    volumes_from:
-#      # Use configured whilp/ssh-agent long running container for keys
-#      - ssh-agent
-
-
 # shared extractions
 extractions: &extractions
   web:
     extract:
-      - '/project/target'
-      - '/project/vcr'
-      - '/project/tmp/parallel_runtime_cucumber.log:./tmp'
-      - '/project/tmp/parallel_runtime_rspec.log:./tmp'
-      - '/project/log'
+      - '/app/target'
+      - '/app/vcr'
+      - '/app/tmp/parallel_runtime_cucumber.log:./tmp'
+      - '/app/tmp/parallel_runtime_rspec.log:./tmp'
+      - '/app/log'
 
 # local environments need elasticsearch, staging/production connects to existing running instance.
 elasticsearch: &elasticsearch
@@ -192,7 +154,7 @@ compose:
 
   web:
     build: .
-    working_dir: /project
+    working_dir: /app
     ports:
       - "3000"
 

@@ -9,9 +9,6 @@ module Docker
         desc 'db_check <db>', 'Runs db_check e.g. bundle exec docker-rails db_check mysql'
         subcommand 'db_check', Docker::Rails::CLI::DbCheck
 
-        desc 'gemset_volume <command>', 'Gemset volume management e.g. docker-rails gemset_volume create'
-        subcommand 'gemset_volume', Docker::Rails::CLI::GemsetVolume
-
         desc 'ci <target>', 'Execute the works, everything with cleanup included e.g. docker-rails ci --build=222 test'
         long_desc <<-D
 
@@ -26,9 +23,9 @@ module Docker
 
           invoke :before, [target], []
           invoke :compose, [target], []
-          invoke CLI::GemsetVolume, :create, [target], options
           begin
-            invoke :build # on CI - always build to ensure dockerfile hasn't been altered - small price to pay for consistent CI.
+            # FIXME: build takes a long time - figure out how to diff this file...and avoid building it.
+            # invoke :build # on CI - always build to ensure dockerfile hasn't been altered - small price to pay for consistent CI.
             invoke :up
           ensure
             invoke :cleanup
@@ -66,7 +63,6 @@ module Docker
           base_options = options.except(:detached)
 
           invoke :before, [target], base_options
-          invoke CLI::GemsetVolume, :create, [target], base_options
 
           if options[:detached]
             compose_options = '-d'
@@ -160,7 +156,6 @@ module Docker
           app = App.configured(target, options)
 
           invoke :compose, [target], []
-          invoke CLI::GemsetVolume, :create, [target], []
 
           app.run_service_command(service_name, command)
         end
