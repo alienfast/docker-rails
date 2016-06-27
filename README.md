@@ -13,7 +13,6 @@ A simplified pattern to execute rails applications within Docker (with a CI buil
 - Interpolates variables `docker-compose.yml` making CI builds much easier
 - DB check CLI function provided for docker-compose `command` to check if db is ready
 - Configurable exit_code for `ci` - determine which container's exit code will be the result of the process (useful for CI tests)
-- Declarative ssh key sharing via SSH Agent Forwarding, including making `known_hosts` available to targeted containers.
 
 ## Usage
 
@@ -28,12 +27,11 @@ CI, the reason this is built. Do it all, do it consistently, do it concurrently,
 `ci` executes: 
 
 1. `before_command` - run anything on the host prior to building the docker image e.g. `rm -Rf target`
-2. `compose` - create the resolved `docker-compose.yml`
-3. `gemset_volume create` - find or create the shared global gems volume for this ruby version
-4. `ssh_agent forward` - forward any declared keys and copy in `known_hosts`
-5. `build` - `docker-compose build` the configuration
-6. `up` - `docker-compose up` the configuration
-7. `cleanup`
+1. `compose` - create the resolved `docker-compose.yml`
+1. `gemset_volume create` - find or create the shared global gems volume for this ruby version
+1. `build` - `docker-compose build` the configuration
+1. `up` - `docker-compose up` the configuration
+1. `cleanup`
     1. `stop` - stop all containers for this configuration (including one-off sessions)
     2. `extract` - extract any defined files from any container
     3. `rm_volumes` - `docker-compose rm -v --force` to cleanup any container volumes (excluding the gems volume)
@@ -87,7 +85,6 @@ Commands:
   docker-rails ps_all                                  # List all remaining containers regardless of state e.g. docker-rails ps_all
   docker-rails rm_dangling                             # Remove danging images e.g. docker-rails rm_dangling
   docker-rails rm_volumes <target>                     # Stop all running containers and remove corresponding volumes for the given build/target e.g. docker-rails rm_volumes --build=222 development
-  docker-rails ssh_agent <command>                     # SSH Agent Forwarding e.g. docker-rails ssh_agent forward
   docker-rails stop <target>                           # Stop all running containers for the given build/target e.g. docker-rails stop --build=222 development
   docker-rails up <target>                             # Up the docker-compose configuration for the given build/target. Use -d for detached mode. e.g. docker-rails up -d --build=222 test
 
@@ -160,16 +157,6 @@ gemset:
     - web
 
 # ---
-# Make the host user's id_rsa key available to the web container e.g. for cloning from github
-#   If you see "Host key verification failed", make sure the same command runs on the host first 
-#   which will add to the known_hosts file. The known_hosts is copied from the host to the ssh-agent automatically.
-ssh-agent:
-  containers:
-    - web
-  keys:
-    - id_rsa
-
-# ---
 # Declare a reusable extract set
 extractions: &extractions
   web:
@@ -197,9 +184,11 @@ compose:
     working_dir: /project/spec/dummy
     ports:
       - "3000"
-
     links:
       - db
+    volumes:
+      # make keys and known_hosts available
+      - ~/.ssh:/root/.ssh      
 
   db:
     # https://github.com/docker-library/docs/tree/master/mysql

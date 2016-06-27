@@ -81,10 +81,6 @@ describe Docker::Rails::Config do
         compose_config
       }
 
-      it 'web should have ssh-agent' do
-        expect(compose_config[:web][:environment]).to include('SSH_AUTH_SOCK=/root/.ssh/socket')
-        expect(compose_config[:web][:volumes_from]).to include("#{project_name}_ssh_agent")
-      end
       it 'web should have gemset' do
         expect(compose_config[:web][:environment]).to include('GEM_HOME=/gemset/2.2.2')
         expect(compose_config[:web][:volumes_from]).to include('gemset-2.2.2')

@@ -29,10 +29,6 @@ module Docker
       end
 
 
-      def ssh_agent_name
-        "#{self[:project_name]}_ssh_agent"
-      end
-
       def write_docker_compose_file(output_filename = 'docker-compose.yml')
         write_yaml_file(output_filename, self[:'compose'])
       end
@@ -63,10 +59,6 @@ module Docker
         # Generate defaults for GEMSET_VOLUME and SSH_AGENT
         generated_defaults = {compose: {}}
         compose = generated_defaults[:compose]
-
-        # ----
-        # ssh-agent
-        generate_ssh_agent(compose, unpruned_config)
 
         # ----
         # gemset volume
@@ -115,29 +107,6 @@ module Docker
                                                       ],
                                                       volumes_from: [gemset_volume_name]
                                                   })
-        end
-      end
-
-      def generate_ssh_agent(compose, unpruned_config)
-        ssh_agent = unpruned_config[:'ssh-agent']
-        if !ssh_agent.nil?
-
-          raise "Expected to find 'ssh-agent: keys' with at least one entry" if ssh_agent[:keys].nil? || ssh_agent[:keys].length < 1
-          ssh_agent[:containers].each do |container|
-            raise "Unknown container #{container}" if unpruned_config[:compose][container.to_sym].nil?
-            # environment:
-            #   # make ssh keys available via ssh forwarding (see volume entry)
-            #   - SSH_AUTH_SOCK=/ssh-agent/socket
-            #
-            # volumes_from:
-            #   # Use configured whilp/ssh-agent long running container for keys
-            #   - <project_name>-ssh-agent
-            compose[container.to_sym] ||= {}
-            compose[container.to_sym].deeper_merge! ({
-                                                        environment: ['SSH_AUTH_SOCK=/root/.ssh/socket'],
-                                                        volumes_from: [ssh_agent_name]
-                                                    })
-          end
         end
       end
     end

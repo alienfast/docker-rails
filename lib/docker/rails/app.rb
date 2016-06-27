@@ -161,7 +161,6 @@ module Docker
             end
           end
         end
-        rm_ssh_agent
         puts 'Done.'
       end
 
@@ -207,24 +206,6 @@ module Docker
 
         exec "docker exec -it #{container.id} bash"
         container
-      end
-
-      def run_ssh_agent
-        return if @config[:'ssh-agent'].nil?
-        run_ssh_agent_daemon
-        ssh_add_keys
-        ssh_add_known_hosts
-      end
-
-      def rm_ssh_agent
-        ssh_agent_name = @config.ssh_agent_name
-        begin
-          container = Docker::Container.get(ssh_agent_name)
-          stop(container)
-          rm_v(container)
-        rescue Docker::Error::NotFoundError => e
-          puts "SSH Agent forwarding container #{ssh_agent_name} does not exist."
-        end
       end
 
       # Create global gems data volume to cache gems for this version of ruby
@@ -357,41 +338,6 @@ module Docker
               sleep 1
             end
           end
-        end
-      end
-
-      def ssh_agent_image
-        'whilp/ssh-agent:latest'
-        # 'rosskevin/ssh-agent:latest'
-      end
-
-      def ssh_base_cmd
-        ssh_agent_name = @config.ssh_agent_name
-        "docker run --rm --volumes-from=#{ssh_agent_name} -v ~/.ssh:/ssh #{ssh_agent_image}"
-      end
-
-      def ssh_add_known_hosts
-        exec "#{ssh_base_cmd} cp /ssh/known_hosts /root/.ssh/known_hosts"
-      end
-
-      def ssh_add_keys
-        ssh_keys = @config[:'ssh-agent'][:keys]
-        puts "Forwarding SSH key(s): #{ssh_keys.join(',')} into container(s): #{@config[:'ssh-agent'][:containers].join(',')}"
-        ssh_keys.each do |key_file_name|
-          local_key_file = "#{ENV['HOME']}/.ssh/#{key_file_name}"
-          raise "Local key file #{local_key_file} doesn't exist." unless File.exists? local_key_file
-          exec "#{ssh_base_cmd} ssh-add /ssh/#{key_file_name}"
-        end
-      end
-
-      def run_ssh_agent_daemon
-        ssh_agent_name = @config.ssh_agent_name
-        begin
-          Docker::Container.get(ssh_agent_name)
-          puts "Gem data volume container #{ssh_agent_name} already exists."
-        rescue Docker::Error::NotFoundError => e
-          exec "docker run -d --name=#{ssh_agent_name} #{ssh_agent_image}"
-          puts "SSH Agent forwarding container #{ssh_agent_name} running."
         end
       end
 
