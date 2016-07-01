@@ -24,8 +24,7 @@ module Docker
           invoke :before, [target], []
           invoke :compose, [target], []
           begin
-            # FIXME: build takes a long time - figure out how to diff this file...and avoid building it.
-            # invoke :build # on CI - always build to ensure dockerfile hasn't been altered - small price to pay for consistent CI.
+            invoke :build # on CI - always build to ensure dockerfile hasn't been altered - small price to pay for consistent CI.
             invoke :up
           ensure
             invoke :cleanup
@@ -133,7 +132,7 @@ module Docker
           App.instance.ps_all
         end
 
-        desc 'bash_connect <target> <service_name>', 'Open a bash shell to a running container (with automatic cleanup) e.g. docker-rails bash --build=222 development db'
+        desc 'bash_connect <target> <service_name>', 'Open a bash shell to a running container (with automatic cleanup) e.g. docker-rails bash_connect --build=222 development db'
 
         def bash_connect(target, service_name)
           # init singleton with full options
