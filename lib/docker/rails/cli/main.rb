@@ -76,8 +76,14 @@ module Docker
 
         def build(target)
           invoke :compose
-          app = App.configured(target, options).compose_build
-          app.after_build_command
+          app = App.configured(target, options)
+          app.create_dockito_vault
+          begin
+            app.compose_build
+          ensure
+            app.rm_dockito_vault
+            app.after_build_command
+          end
         end
 
         desc 'compose <target>', 'Writes a resolved docker-compose.yml file e.g. docker-rails compose --build=222 test'
@@ -118,6 +124,12 @@ module Docker
 
         def rm_dangling(build = nil, target = nil)
           App.instance.rm_dangling
+        end
+
+        desc 'rm_exited', 'Remove exited containers e.g. docker-rails rm_exited'
+
+        def rm_exited(build = nil, target = nil)
+          App.instance.rm_exited
         end
 
         desc 'ps <target>', 'List containers for the target compose configuration e.g. docker-rails ps --build=222 development'

@@ -37,6 +37,39 @@ module Docker
         @is_configured = true
       end
 
+      # Create a dockito vault container for serving private keys
+      #     https://github.com/dockito/vault
+      def create_dockito_vault
+        begin
+          Docker::Container.get(dockito_vault_name)
+          puts "Dockito vault container #{dockito_vault_name} already exists."
+        rescue Docker::Error::NotFoundError => e
+
+          # docker run --detach --name vault -p 14242:3000 -v ~/.ssh:/vault/.ssh dockito/vault:latest
+          exec "docker run --detach --name #{dockito_vault_name} -p 14242:3000 -v ~/.ssh:/vault/.ssh dockito/vault:latest"
+          puts "Dockito vault container #{dockito_vault_name} created."
+        end
+      end
+
+      def rm_dockito_vault
+        begin
+          container = Docker::Container.get(dockito_vault_name)
+          rm_v(container)
+        rescue Docker::Error::NotFoundError => e
+          puts "Dockito vault container #{dockito_vault_name} does not exist."
+        end
+      end
+
+      # FIXME this needs to by dynamic to this run?
+      def dockito_vault_name
+        'vault' #@config[:dockito][:vault][:name]
+      end
+
+      def dockito_vault_enabled?
+        @config[:dockito][:vault] || false
+      end
+
+
       def compose
         # Write a docker-compose.yml with interpolated variables
         @compose_filename = compose_filename_from project_name
@@ -196,6 +229,14 @@ module Docker
         puts 'Done.'
       end
 
+      def rm_exited
+        puts "\n\nCleaning up exited containers..."
+        puts '-----------------------------'
+
+        exec('docker rm -v $(docker ps -a -q -f status=exited)', false, true)
+        puts 'Done.'
+      end
+
       def run_service_command(service_name, command)
         # Run the compose configuration
         exec_compose("run #{service_name} #{command}", false, '', true)
@@ -227,7 +268,7 @@ module Docker
         output
       end
 
-      # convenience to execute docker-compose with file and project params
+# convenience to execute docker-compose with file and project params
       def exec_compose(cmd, capture = false, options = '', ignore_errors = false)
         # in the case of running a bash session, this file may dissappear, just make sure it is there.
         compose unless File.exists?(@compose_filename)
@@ -259,7 +300,7 @@ module Docker
         @verbose ||= (@config['verbose'] unless @config.nil?) || false
       end
 
-      # accessible so that we can delete patterns
+# accessible so that we can delete patterns
       def compose_filename_from(project_name)
         "docker-compose-#{project_name}.yml"
       end
@@ -306,7 +347,7 @@ module Docker
         kill(container)
       end
 
-      # kill container, progressively more forceful from -1, -9, then full Chuck Norris.
+# kill container, progressively more forceful from -1, -9, then full Chuck Norris.
       def kill(container)
         %w(SIGHUP SIGKILL SIGSTOP).each do |signal|
           if container.up?
