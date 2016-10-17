@@ -118,7 +118,12 @@ module Docker
 
       def before_command
         before_command = @config['before_command']
-        (exec before_command unless before_command.nil?) #unless skip? :before_command
+        (exec before_command unless before_command.nil?)
+      end
+
+      def after_build_command
+        after_build_command = @config['after_build_command']
+        (exec after_build_command unless after_build_command.nil?)
       end
 
       def up(options = '')

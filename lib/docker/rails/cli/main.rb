@@ -76,7 +76,8 @@ module Docker
 
         def build(target)
           invoke :compose
-          App.configured(target, options).compose_build
+          app = App.configured(target, options).compose_build
+          app.after_build_command
         end
 
         desc 'compose <target>', 'Writes a resolved docker-compose.yml file e.g. docker-rails compose --build=222 test'
