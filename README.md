@@ -3,7 +3,9 @@
 [![Build Status](https://travis-ci.org/alienfast/docker-rails.svg)](https://travis-ci.org/alienfast/docker-rails)
 [![Code Climate](https://codeclimate.com/github/alienfast/docker-rails/badges/gpa.svg)](https://codeclimate.com/github/alienfast/docker-rails)
 
-A simplified pattern to execute rails applications within Docker (with a CI build emphasis).
+A simplified pattern to execute rails applications within Docker (with a CI build emphasis).  
+
+Note: The only item that is rails-specific is the `db_check`, otherwise this can be useful for other CI situations as well.  Perhaps we should have chosen a different name?
 
 ## Features
 - DRY declarative `docker-rails.yml` allowing multiple environments to be defined with an inherited docker `compose` configuration
@@ -440,13 +442,9 @@ source ~/.bash_profile
 docker-rails cleanup --build=$bamboo_buildNumber parallel_tests
 ```
 
-## Work in progress - contributions welcome
-Open to pull requests. Open to refactoring. It can be expanded to suit many different configurations.
-
-TODO:
-- **DB versatility** - expand to different db status detection as-needed e.g. postgres. CLI is now modularized to allow for this.
-
 ## Contributing
+
+Yes please.
 
 1. Fork it ( https://github.com/[my-github-username]/docker-rails/fork )
 2. Create your feature branch (`git checkout -b my-new-feature`)
@@ -455,4 +453,4 @@ TODO:
 5. Create a new Pull Request
 
 ## License and Attributions
-MIT license, inspired by many but certainly a [useful blog post by AtlasHealth](http://www.atlashealth.com/blog/2014/09/persistent-ruby-gems-docker-container). 
+MIT license 
