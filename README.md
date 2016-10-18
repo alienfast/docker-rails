@@ -81,6 +81,7 @@ Commands:
   docker-rails ps <target>                             # List containers for the target compose configuration e.g. docker-rails ps --build=222 development
   docker-rails ps_all                                  # List all remaining containers regardless of state e.g. docker-rails ps_all
   docker-rails rm_dangling                             # Remove danging images e.g. docker-rails rm_dangling
+  docker-rails rm_exited                               # Remove exited containers e.g. docker-rails rm_exited
   docker-rails rm_volumes <target>                     # Stop all running containers and remove corresponding volumes for the given build/target e.g. docker-rails rm_volumes --build=222 development
   docker-rails stop <target>                           # Stop all running containers for the given build/target e.g. docker-rails stop --build=222 development
   docker-rails up <target>                             # Up the docker-compose configuration for the given build/target. Use -d for detached mode. e.g. docker-rails up -d --build=222 test
@@ -108,8 +109,102 @@ Or install it yourself as:
 
 ### 1. Add a Dockerfile
 
+This is a _real world example_ (**not a minimal example**) of a rails engine called `acme` with a `dummy` application used for testing.  Other notable items:
+ - installs node
+ - uses [`dockito/vault`](https://github.com/dockito/vault) via `ONVAULT` to execute `npm` with private key access without exposing the npm key to the layer
+ - runs `npm build` to transpile the `dummy` application UI  
+
 ```bash
-FIXME
+FROM convox/ruby
+
+# mysql client, nodejs, clean up APT when done.
+# - libelf1 for flow-bin
+# - libfontconfig for phantomjs
+RUN apt-get update -qq && apt-get install -qy \
+  vim \
+  wget \
+  libelf1 \
+  libfontconfig \
+  libmysqlclient-dev \
+  mysql-client \
+  git \
+  curl \
+  && curl -L https://raw.githubusercontent.com/dockito/vault/master/ONVAULT > /usr/local/bin/ONVAULT \
+  && chmod +x /usr/local/bin/ONVAULT \
+  && rm -rf /var/lib/apt/lists/* \
+  && apt-get -y autoclean
+
+# Install nodejs - see dockerfile - https://github.com/nodejs/docker-node/blob/master/6.2/Dockerfile
+# gpg keys listed at https://github.com/nodejs/node
+RUN set -ex \
+  && for key in \
+    9554F04D7259F04124DE6B476D5A82AC7E37093B \
+    94AE36675C464D64BAFA68DD7434390BDBE9B9C5 \
+    0034A06D9D9B0064CE8ADF6BF1747F4AD2306D93 \
+    FD3A5288F042B6850C66B31F09FE44734EB7990E \
+    71DCFD284A79C3B38668286BC97EC7A07EDE3FC1 \
+    DD8F2338BAE7501E3DD5AC78C273792F7D83545D \
+    B9AE9905FFD7803F25714661B63B535A4C206CA9 \
+    C4F0DFFF4E8C1A8236409D08E73BC641CC11F4C8 \
+  ; do \
+    gpg --keyserver ha.pool.sks-keyservers.net --recv-keys "$key"; \
+  done
+
+ENV NPM_CONFIG_LOGLEVEL error
+ENV NODE_VERSION 6.8.1
+
+RUN curl -SLO "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-x64.tar.xz" \
+  && curl -SLO "https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt.asc" \
+  && gpg --batch --decrypt --output SHASUMS256.txt SHASUMS256.txt.asc \
+  && grep " node-v$NODE_VERSION-linux-x64.tar.xz\$" SHASUMS256.txt | sha256sum -c - \
+  && tar -xJf "node-v$NODE_VERSION-linux-x64.tar.xz" -C /usr/local --strip-components=1 \
+  && rm "node-v$NODE_VERSION-linux-x64.tar.xz" SHASUMS256.txt.asc SHASUMS256.txt
+
+# Set an environment variable to store where the app is installed to inside of the Docker image.
+ENV INSTALL_PATH /app
+RUN mkdir -p $INSTALL_PATH
+WORKDIR $INSTALL_PATH
+
+# Ensure gems are cached they are less likely to change than node modules
+COPY acme.gemspec               acme.gemspec
+COPY Gemfile                  Gemfile
+COPY Gemfile_shared.rb        Gemfile_shared.rb
+COPY spec/dummy/Gemfile       spec/dummy/Gemfile
+
+# bundle acme
+RUN bundle install --jobs 12 --retry 3 --without development
+
+# Ensure node_modules are cached next, they are less likely to change than source code
+WORKDIR $INSTALL_PATH
+COPY package.json             package.json
+COPY spec/dummy/package.json  spec/dummy/package.json
+
+# npm install with:
+#   - private keys accessible
+#   - skip optional dependencies like fsevents
+#   - production (**turned off because we need eslint etc devDependencies)
+#   - link dummy's node_modules to acme for a faster install
+#   - add the authorized host key for github (avoids "Host key verification failed")
+RUN ONVAULT npm install --no-optional \
+  && cd spec/dummy \
+  && ln -s $INSTALL_PATH/node_modules node_modules \
+  && npm install --no-optional
+
+# add all the test hosts to localhost to skip xip.io
+RUN echo "127.0.0.1	localhost dummy.com.127.0.0.1.xip.io" >> /etc/hosts
+
+#--------------
+# NOTE: we evidently must include the VOLUME command **after** the npm install so that we can read the installed modules
+#--------------
+# Bypass the union file system for better performance (this is important for read/write of spec/test files)
+# https://docs.docker.com/engine/reference/builder/#volume
+# https://docs.docker.com/userguide/dockervolumes/
+VOLUME $INSTALL_PATH
+
+# Copy the project files into the container (again, better performance).  Use `extract` in the docker-rails.yml to obtain files such as test results.
+COPY . .
+
+RUN cd spec/dummy && npm run build
 ```
 
 ### 2. Add a docker-rails.yml
@@ -121,6 +216,12 @@ The _rails engine_ example below shows an example with all of the environments `
 verbose: true
 exit_code: web
 before_command: bash -c "rm -Rf target && rm -Rf spec/dummy/log"
+
+# ---
+# Run a dockito vault container during the build to allow it to access secrets (e.g. github clone)
+dockito:
+  vault:
+    enabled: true
 
 # ---
 # Declare a reusable extract set
