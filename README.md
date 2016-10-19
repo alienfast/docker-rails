@@ -176,8 +176,8 @@ COPY Gemfile                  Gemfile
 COPY Gemfile_shared.rb        Gemfile_shared.rb
 COPY spec/dummy/Gemfile       spec/dummy/Gemfile
 # This is only here to trigger re-bundle when lock changes, we actually only use the ImageGemfile.lock so that we are
-#   always doing a fresh bundle anytime the source lock changes.
-COPY Gemfile.lock             Gemfile.lock
+#   always doing a fresh bundle anytime the source lock changes.  Only keep the dummy lock in the repo, not the engine lock.
+COPY spec/dummy/Gemfile.lock  spec/dummy/Gemfile.lock
 
 # Bundle acme and the dummy app
 RUN \
