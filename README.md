@@ -5,6 +5,8 @@
 
 A simplified pattern to execute rails applications within Docker (with a CI build emphasis).  
 
+Uses **version: '2'** of `docker-compose` syntax
+
 Note: The only item that is rails-specific is the `db_check`, otherwise this can be useful for other CI situations as well.  Perhaps we should have chosen a different name?
 
 ## Features
@@ -114,7 +116,8 @@ Or install it yourself as:
 This is a _real world example_ (**not a minimal example**) of a rails engine called `acme` with a `dummy` application used for testing.  Other notable items:
  - installs node
  - uses [`dockito/vault`](https://github.com/dockito/vault) via `ONVAULT` to execute `npm` with private key access without exposing the npm key to the layer
- - runs `npm build` to transpile the `dummy` application UI  
+ - runs `npm build` to transpile the `dummy` application UI
+ - allows for use of a private npm registry
 
 ```bash
 FROM convox/ruby
@@ -172,14 +175,25 @@ COPY acme.gemspec               acme.gemspec
 COPY Gemfile                  Gemfile
 COPY Gemfile_shared.rb        Gemfile_shared.rb
 COPY spec/dummy/Gemfile       spec/dummy/Gemfile
+# This is only here to trigger re-bundle when lock changes, we actually only use the ImageGemfile.lock so that we are
+#   always doing a fresh bundle anytime the source lock changes.
+COPY Gemfile.lock             Gemfile.lock
 
-# bundle acme
-RUN bundle install --jobs 12 --retry 3 --without development
+# Bundle acme and the dummy app
+RUN \
+  bundle install --jobs 12 --retry 3 --without development \
+  && mv Gemfile.lock ImageGemfile.lock \
+  && cd spec/dummy \
+  && bundle install --jobs 12 --retry 3 --without development \
+  && mv Gemfile.lock ImageGemfile.lock
 
 # Ensure node_modules are cached next, they are less likely to change than source code
 WORKDIR $INSTALL_PATH
 COPY package.json             package.json
 COPY spec/dummy/package.json  spec/dummy/package.json
+
+# https://docs.npmjs.com/private-modules/docker-and-private-modules
+ARG NPM_TOKEN
 
 # npm install with:
 #   - private keys accessible
@@ -187,10 +201,13 @@ COPY spec/dummy/package.json  spec/dummy/package.json
 #   - production (**turned off because we need eslint etc devDependencies)
 #   - link dummy's node_modules to acme for a faster install
 #   - add the authorized host key for github (avoids "Host key verification failed")
-RUN ONVAULT npm install --no-optional \
+RUN \
+  #echo "Using NPM_TOKEN: ${NPM_TOKEN}" \
+  echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc \
+  && ONVAULT npm install --no-optional \
+  && rm .npmrc \
   && cd spec/dummy \
-  && ln -s $INSTALL_PATH/node_modules node_modules \
-  && npm install --no-optional
+  && ln -s $INSTALL_PATH/node_modules node_modules
 
 # add all the test hosts to localhost to skip xip.io
 RUN echo "127.0.0.1	localhost dummy.com.127.0.0.1.xip.io" >> /etc/hosts
@@ -203,21 +220,35 @@ RUN echo "127.0.0.1	localhost dummy.com.127.0.0.1.xip.io" >> /etc/hosts
 # https://docs.docker.com/userguide/dockervolumes/
 VOLUME $INSTALL_PATH
 
-# Copy the project files into the container (again, better performance).  Use `extract` in the docker-rails.yml to obtain files such as test results.
+# Copy the project files into the container (again, better performance).
+#   Use `extract` in the docker-rails.yml to obtain files such as test results.
+#   NOTE: make sure all unwanted files are listed in the .dockerignore!  i.e. lock files in the case of an engine!
 COPY . .
 
-RUN cd spec/dummy && npm run build
+#
+# - Overwrite the source lock files with the image lock files (so we ensure a fresher bundle _and_ that we have the bundled gems in the lock file)
+# - Run npm build on dummy
+RUN \
+  mv ImageGemfile.lock Gemfile.lock \
+  && cd spec/dummy \
+  && mv ImageGemfile.lock Gemfile.lock \
+  && npm run build
 ```
 
 ### 2. Add a docker-rails.yml
 
 Environment variables will be interpolated, so feel free to use them. 
-The _rails engine_ example below shows an example with all of the environments `ssh_test | development | test | parallel_tests | staging` to show reuse of the primary `compose` configuration. 
+The _rails engine_ example below shows an example with all of the environments `ssh_test | test | parallel_tests | sysbench*` to show reuse of the primary `compose` configuration. 
 
 ```yaml
 verbose: true
+before_command: >
+  bash -c "
+  rm -Rf target
+  && rm -Rf spec/dummy/log
+  && mkdir -p target
+  "
 exit_code: web
-before_command: bash -c "rm -Rf target && rm -Rf spec/dummy/log"
 
 # ---
 # Run a dockito vault container during the build to allow it to access secrets (e.g. github clone)
@@ -233,167 +264,197 @@ extractions: &extractions
       - '/app/target'
       - '/app/vcr'
       - '/app/spec/dummy/log:spec/dummy'
-      - '/app/tmp/parallel_runtime_cucumber.log:./tmp'
-      - '/app/tmp/parallel_runtime_rspec.log:./tmp'
 
-      
-# ---
-# Declare a reusable elasticsearch container, staging/production connects to existing running instance.
+# local environments need elasticsearch, staging/production connects to existing running instance.
 elasticsearch: &elasticsearch
   elasticsearch:
     image: library/elasticsearch:1.7
     ports:
       - "9200"
-      
-# ---
-# Base docker-compose configuration for all environments.  Anything under the `compose` element must be standard docker-compose syntax.
-compose:
-  web:
-    build: .
-    working_dir: /app/spec/dummy
-    ports:
-      - "3000"
-    links:
-      - db
-    volumes:
-      # make keys and known_hosts available
-      - ~/.ssh:/root/.ssh      
-
-  db:
-    # https://github.com/docker-library/docs/tree/master/mysql
-    image: library/mysql:5.7.6
-    ports:
-      - "3306"
-
-    # https://github.com/docker-library/docs/tree/master/mysql#environment-variables
-    environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=true      
-
-# ---
-# Overrides based on the named targets ssh_test | development | test | parallel_tests | staging       
-ssh_test:
-  compose:
-    web:
-      command: bash -c "ssh -T git@bitbucket.org"      
-
-development:
-  compose:
-    <<: *elasticsearch
-    web:
-      links:
-        - elasticsearch # standard yaml doesn't merge arrays so we have to add this explicitly
-      environment:
-        - RAILS_ENV=development
-      command: >
-        bash -c "
-
-        echo 'Bundling gems'
-        && bundle install --jobs 4 --retry 3
-
-        && echo 'Generating Spring binstubs'
-        && bundle exec spring binstub --all
-
-        && echo 'Clearing logs and tmp dirs'
-        && bundle exec rake log:clear tmp:clear
-
-        && echo 'Check and wait for database connection'
-        && bundle exec docker-rails db_check mysql
-
-        && echo 'Setting up new db if one doesn't exist'
-        && bundle exec rake db:version || { bundle exec rake db:setup; }
-
-        && echo "Starting app server"
-        && bundle exec rails s -p 3000
-
-        && echo 'Setup and start foreman'
-        && gem install foreman
-        && foreman start
-        "
 
 test:
   <<: *extractions
   compose:
-    <<: *elasticsearch
-    web:
-      links:
-        - elasticsearch # standard yaml doesn't merge arrays so we have to add this explicitly
-      environment:
-        - RAILS_ENV=test
-      command: >
-        bash -c "
-        echo 'Bundling gems'
-        && bundle install --jobs 4 --retry 3
-
-        && echo 'Clearing logs and tmp dirs'
-        && bundle exec rake log:clear tmp:clear
-
-        && echo 'Check and wait for database connection'
-        && bundle exec docker-rails db_check mysql
-
-        && echo 'Setting up new db if one doesn't exist'
-        && bundle exec rake db:version || { bundle exec rake db:setup; }
-
-        && echo 'Tests'
-        && cd ../..
-        && xvfb-run -a bundle exec rake spec cucumber
-        "
+    services:
+      <<: *elasticsearch
+      web:
+        links:
+          - elasticsearch # standard yaml doesn't merge arrays so we have to add this explicitly
+        environment:
+          - RAILS_ENV=test
+          - CI=true
+        command: >
+          bash -c "
+            cd ../.. \
+            && gem list aws-sdk \
+            && bundle exec rake -T \
+            && npm run validate \
+            && cd spec/dummy \
+            && echo 'Check and wait for database connection' \
+            && bundle exec docker-rails db_check mysql \
+            && echo 'DB rebuild' \
+            && bundle exec rake db:rebuild_test \
+            && echo 'Tests' \
+            && cd ../.. \
+            && bundle exec rake spec SPEC=spec/app/models/plan_spec.rb cucumber FEATURE=features/public_pages.feature
+          "
 
 parallel_tests:
   <<: *extractions
   compose:
-    <<: *elasticsearch
+    services:
+      <<: *elasticsearch
+      web:
+        links:
+          - elasticsearch # standard yaml doesn't merge arrays so we have to add this explicitly
+        environment:
+          - RAILS_ENV=test
+          - CI=true
+        command: >
+          bash -c "
+            cd ../.. \
+            && npm run validate \
+            && cd spec/dummy \
+            && echo 'Check and wait for database connection' \
+            && bundle exec docker-rails db_check mysql \
+            && echo 'DB rebuild' \
+            && bundle exec rake db:rebuild_test[true] \
+            && echo 'Tests' \
+            && cd ../.. \
+            && bundle exec rake parallel:spec parallel:features
+          "
+
+compose:
+  version: '2'
+  services:
     web:
+      build:
+        context: .
+        args:
+          - NPM_TOKEN
+      working_dir: /app/spec/dummy
+      ports:
+        - "3000"
+        - "4000"
       links:
-        - elasticsearch # standard yaml doesn't merge arrays so we have to add this explicitly
+        - db
+#      volumes:
+#        # make keys and known_hosts available
+#        - ~/.ssh:/root/.ssh
+    db:
+      # https://github.com/docker-library/docs/tree/master/mysql
+      image: library/mysql:5.7
+      ports:
+        - "3306"
+      volumes:
+        - ./db/mysql:/etc/mysql/conf.d
+      # https://github.com/docker-library/docs/tree/master/mysql#environment-variables
       environment:
-        - RAILS_ENV=test
-      command: >
-        bash -c "
+        - MYSQL_ALLOW_EMPTY_PASSWORD=true
 
-        echo 'Bundling gems'
-        && bundle install --jobs 4 --retry 3
 
-        && echo 'Clearing logs and tmp dirs'
-        && bundle exec rake log:clear tmp:clear
-
-        && echo 'Check and wait for database connection'
-        && bundle exec docker-rails db_check mysql
-
-        && echo 'Setting up new db if one doesn't exist'
-        && bundle exec rake parallel:drop parallel:create parallel:migrate parallel:seed
-
-        && echo 'Tests'
-        && cd ../..
-        && xvfb-run -a bundle exec rake parallel:spec parallel:features
-        "
-
-staging:
+# --------------------------
+# test cases below here
+ssh_test:
   compose:
-    web:
-      environment:
-        - RAILS_ENV=staging
-      command: >
-        bash -c "
+    services:
+      web:
+        command: bash -c "ssh -T git@github.com"
 
-        echo 'Bundling gems'
-        && bundle install --jobs 4 --retry 3
+sysbench_all:
+  compose:
+    services:
+      <<: *elasticsearch
 
-        && echo 'Clearing logs and tmp dirs'
-        && bundle exec rake log:clear tmp:clear
+      web:
+        command: >
+          bash -c "
 
-        && echo 'Check and wait for database connection'
-        && bundle exec docker-rails db_check mysql
+          echo 'Benchmarking CPU'
+          && sysbench --test=cpu --cpu-max-prime=20000 run
 
-        && echo 'Setting up new db if one doesn't exist'
-        && bundle exec rake db:migrate
+          && echo 'Creating file for IO benchmark'
+          && sysbench --test=fileio --file-total-size=2G prepare
 
-        && echo "Starting app server"
-        && bundle exec rails s -p 3000
+          && echo 'Benchmarking IO'
+          && sysbench --test=fileio --file-total-size=2G --file-test-mode=rndrw --init-rng=on --max-time=300 --max-requests=0 run
 
-        && echo 'Setup and start foreman'
-        && gem install foreman
-        && foreman start
-        "
+          && echo 'Cleaning up file for IO benchmark'
+          && sysbench --test=fileio --file-total-size=2G cleanup
+
+          && echo 'Bundling gems'
+          && bundle install --jobs 4 --retry 3
+
+          && echo 'Check and wait for database connection'
+          && bundle exec docker-rails db_check mysql
+
+          && echo 'Create test database'
+          && mysql -h db -u root -e 'create database test'
+
+          && echo 'Preparing MySQL benchmark'
+          && sysbench --test=oltp --oltp-table-size=1000000 --mysql-db=test --mysql-user=root --mysql-host=db prepare
+
+          && echo 'Benchmarking MySQL'
+          && sysbench --test=oltp --oltp-table-size=1000000 --mysql-db=test --mysql-user=root --mysql-host=db --max-time=60 --oltp-read-only=on --max-requests=0 --num-threads=8 run
+
+          && echo 'Cleaning up MySQL benchmark'
+          && sysbench --test=oltp --mysql-db=test --mysql-user=root --mysql-host=db cleanup
+          "
+
+sysbench_db:
+  compose:
+    services:
+      <<: *elasticsearch
+      web:
+        command: >
+          bash -c "
+
+          echo 'Bundling gems'
+          && bundle install --jobs 4 --retry 3
+
+          && echo 'Check and wait for database connection'
+          && bundle exec docker-rails db_check mysql
+
+          && echo 'Create test database'
+          && mysql -h db -u root -e 'create database test'
+
+          && echo 'Preparing MySQL benchmark'
+          && sysbench --test=oltp --oltp-table-size=1000000 --mysql-db=test --mysql-user=root --mysql-host=db prepare
+
+          && echo 'Benchmarking MySQL'
+          && sysbench --test=oltp --oltp-table-size=1000000 --mysql-db=test --mysql-user=root --mysql-host=db --max-time=60 --oltp-read-only=on --max-requests=0 --num-threads=8 run
+
+          && echo 'Cleaning up MySQL benchmark'
+          && sysbench --test=oltp --mysql-db=test --mysql-user=root --mysql-host=db cleanup
+          "
+
+sysbench_io:
+  compose:
+    services:
+      <<: *elasticsearch
+      web:
+        command: >
+          bash -c "
+          echo 'Creating file for IO benchmark'
+          && sysbench --test=fileio --file-total-size=2G prepare
+
+          && echo 'Benchmarking IO'
+          && sysbench --test=fileio --file-total-size=2G --file-test-mode=rndrw --init-rng=on --max-time=300 --max-requests=0 run
+
+          && echo 'Cleaning up file for IO benchmark'
+          && sysbench --test=fileio --file-total-size=2G cleanup
+          "
+
+sysbench_cpu:
+  compose:
+    services:
+      <<: *elasticsearch
+      web:
+        command: >
+          bash -c "
+          echo 'Benchmarking CPU'
+          && sysbench --test=cpu --cpu-max-prime=20000 run
+          "
 ```
 
 ## CI setup

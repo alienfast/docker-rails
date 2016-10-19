@@ -83,7 +83,7 @@ module Docker
 
         # check the exit_code
         if @config['exit_code'].nil?
-          first_defined_service = @compose_config.keys[0]
+          first_defined_service = @compose_config.services.keys[0]
           puts "exit_code not set in configuration, using exit code from first defined service: #{first_defined_service}"
           @config['exit_code'] = first_defined_service
         end
@@ -107,7 +107,7 @@ module Docker
         #         - '/project/tmp/parallel_runtime_cucumber.log:./tmp'
         #         - '/project/tmp/parallel_runtime_rspec.log:./tmp'
 
-        @compose_config.each_key do |service_name|
+        @compose_config.services.each_key do |service_name|
           service_config = @config[service_name]
           extractions = service_config[:extract] unless service_config.nil?
           next if extractions.nil?
