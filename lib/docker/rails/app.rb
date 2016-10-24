@@ -166,10 +166,10 @@ module Docker
 
       def down(options = '')
         # `compose down` doesn't support force removing images, so we use `rm --force`
-        exec_compose 'rm', "#{options} --force --all -v"
+        exec_compose 'rm', '--force --all -v'
 
         # Stop and remove all the linked services and network
-        exec_compose 'down', options
+        exec_compose 'down', false, options
       end
 
       def compose_build
