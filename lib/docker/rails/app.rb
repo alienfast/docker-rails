@@ -164,6 +164,14 @@ module Docker
         exec_compose 'up', false, options #unless skip? :up
       end
 
+      def down(options = '')
+        # `compose down` doesn't support force removing images, so we use `rm --force`
+        exec_compose 'rm', "#{options} --force --all -v"
+
+        # Stop and remove all the linked services and network
+        exec_compose 'down', options
+      end
+
       def compose_build
         # Run the compose configuration
         exec_compose 'build'
@@ -180,42 +188,42 @@ module Docker
         exec 'docker ps -a'
       end
 
-      def stop_all
-        puts "\n\n\n\nStopping containers..."
-        puts '-----------------------------'
-        containers = Docker::Container.all(all: true)
-        containers.each do |container|
-          if is_project_container?(container)
-            stop(container)
+      # def stop_all
+      #   puts "\n\n\n\nStopping containers..."
+      #   puts '-----------------------------'
+      #   containers = Docker::Container.all(all: true)
+      #   containers.each do |container|
+      #     if is_project_container?(container)
+      #       stop(container)
+      #
+      #       service_name = container.compose.service
+      #       if @config['exit_code'].eql?(service_name)
+      #         if container.up?
+      #           puts "Unable to determine exit code, the #{service_name} is still up, current status: #{container.status}"
+      #           @exit_code = -999
+      #         else
+      #           @exit_code = container.exit_code
+      #         end
+      #       end
+      #     end
+      #   end
+      #   puts 'Done.'
+      # end
 
-            service_name = container.compose.service
-            if @config['exit_code'].eql?(service_name)
-              if container.up?
-                puts "Unable to determine exit code, the #{service_name} is still up, current status: #{container.status}"
-                @exit_code = -999
-              else
-                @exit_code = container.exit_code
-              end
-            end
-          end
-        end
-        puts 'Done.'
-      end
-
-      def rm_volumes
-        puts "\n\nRemoving container volumes..."
-        puts '-----------------------------'
-
-        # http://docs.docker.com/v1.7/reference/api/docker_remote_api_v1.19/#remove-a-container
-        containers = Docker::Container.all(all: true)
-        containers.each do |container|
-          if is_project_container?(container)
-            puts container.name
-            rm_v(container)
-          end
-        end
-        puts 'Done.'
-      end
+      # def rm_volumes
+      #   puts "\n\nRemoving container volumes..."
+      #   puts '-----------------------------'
+      #
+      #   # http://docs.docker.com/v1.7/reference/api/docker_remote_api_v1.19/#remove-a-container
+      #   containers = Docker::Container.all(all: true)
+      #   containers.each do |container|
+      #     if is_project_container?(container)
+      #       puts container.name
+      #       rm_v(container)
+      #     end
+      #   end
+      #   puts 'Done.'
+      # end
 
       def rm_dangling
         puts "\n\nCleaning up dangling images..."

@@ -41,13 +41,12 @@ module Docker
           app.extract_all
         end
 
-        desc 'cleanup <target>', 'Runs container cleanup functions stop, rm_volumes, rm_compose, rm_dangling, ps_all e.g. docker-rails cleanup --build=222 development'
+        desc 'cleanup <target>', 'Runs container cleanup functions extract, down, rm_compose, rm_dangling, ps_all e.g. docker-rails cleanup --build=222 development'
         option :extract, aliases: ['-e'], type: :boolean, default: true, desc: 'Extract any directories defined in configuration.'
 
         def cleanup(target)
-          invoke :stop
           invoke :extract if options[:extract]
-          invoke :rm_volumes
+          invoke :down
           invoke :rm_compose
           # invoke :rm_dangling # causes a brand new dockerfile build - don't do that. See https://github.com/alienfast/docker-rails/issues/26
           invoke :ps_all
@@ -100,18 +99,11 @@ module Docker
           app.before_command
         end
 
-        desc 'stop <target>', 'Stop all running containers for the given build/target e.g. docker-rails stop --build=222 development'
+        desc 'down <target>', 'Stop and cleanup all running containers for the given build/target e.g. docker-rails down --build=222 development'
 
-        def stop(target)
+        def down(target)
           invoke :compose
-          App.configured(target, options).stop_all
-        end
-
-        desc 'rm_volumes <target>', 'Stop all running containers and remove corresponding volumes for the given build/target e.g. docker-rails rm_volumes --build=222 development'
-
-        def rm_volumes(target)
-          invoke :stop
-          App.configured(target, options).rm_volumes
+          App.configured(target, options).down
         end
 
         desc 'rm_compose', 'Remove generated docker_compose file e.g. docker-rails rm_compose --build=222 development', hide: true
