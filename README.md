@@ -1,3 +1,6 @@
+# Abandoned
+If someone wants to pick up where we left off, feel free to fork.  Since CircleCI 2.0 allowed docker containers, we migrated our build to it (and recommend it).  Our production has since moved to convox.
+
 # docker-rails
 [![Gem Version](https://badge.fury.io/rb/docker-rails.svg)](https://rubygems.org/gems/docker-rails)
 [![Build Status](https://travis-ci.org/alienfast/docker-rails.svg)](https://travis-ci.org/alienfast/docker-rails)
